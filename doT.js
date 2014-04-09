@@ -2,7 +2,7 @@
 // 2011, Laura Doktorova, https://github.com/olado/doT
 // Licensed under the MIT license.
 
-(function() {
+(function(global) {
 	"use strict";
 
 	var doT = {
@@ -24,14 +24,13 @@
 		},
 		template: undefined, //fn, compile template
 		compile:  undefined  //fn, for express
-	}, global;
+	};
 
 	if (typeof module !== 'undefined' && module.exports) {
 		module.exports = doT;
 	} else if (typeof define === 'function' && define.amd) {
 		define(function(){return doT;});
 	} else {
-		global = (function(){ return this || (0,eval)('this'); }());
 		global.doT = doT;
 	}
 
@@ -133,4 +132,4 @@
 	doT.compile = function(tmpl, def) {
 		return doT.template(tmpl, null, def);
 	};
-}());
+}(this));
