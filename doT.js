@@ -45,8 +45,8 @@
 	String.prototype.encodeHTML = encodeHTMLSource();
 
 	var startend = {
-		append: { start: "'+(",      end: ")+'",      endencode: "||'').toString().encodeHTML()+'" },
-		split:  { start: "';out+=(", end: ");out+='", endencode: "||'').toString().encodeHTML();out+='"}
+		append: { start: "'+(",      end: ")+'",      startencode:"'+encodeHTML(",      endencode: ")+'" },
+		split:  { start: "';out+=(", end: ");out+='", startencode:"';out+=encodeHTML(", endencode: ");out+='"}
 	}, skip = /$^/;
 
 	function resolveDefs(c, block, def) {
@@ -98,7 +98,7 @@
 			})
 			.replace(c.encode || skip, function(m, code) {
 				needhtmlencode = true;
-				return cse.start + unescape(code) + cse.endencode;
+				return cse.startencode + unescape(code) + cse.endencode;
 			})
 			.replace(c.conditional || skip, function(m, elsecase, code) {
 				return elsecase ?
