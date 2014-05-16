@@ -37,11 +37,11 @@
 	function encodeHTMLSource() {
 		var encodeHTMLRules = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': '&#34;', "'": '&#39;', "/": '&#47;' },
 			matchHTML = /&(?!#?\w+;)|<|>|"|'|\//g;
-		return function() {
-			return this ? this.replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : this;
+		return function(t) {
+			return t ? t.replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : t;
 		};
 	}
-	String.prototype.encodeHTML = encodeHTMLSource();
+	doT.encodeHTMLSource = encodeHTMLSource;
 
 	var startend = {
 		append: { start: "'+(",      end: ")+'",      startencode:"'+encodeHTML(",      endencode: ")+'" },
@@ -119,7 +119,7 @@
 			.replace(/(\s|;|\}|^|\{)out\+=''\+/g,'$1out+=');
 
 		if (needhtmlencode && c.selfcontained) {
-			str = "String.prototype.encodeHTML=(" + encodeHTMLSource.toString() + "());" + str;
+			str = "var encodeHTML=(" + encodeHTMLSource.toString() + "());" + str;
 		}
 		try {
 			return new Function(c.varname, str);
