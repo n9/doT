@@ -5,22 +5,44 @@
 (function(global) {
 	"use strict";
 
+	var pBegin = "\\{\\{\\s*";
+	var pEnd = "\\s*\\}\\}";
+	var sIterate = "\@";
+	var sConditional = "\\?";
+	var sDefine = "\\>";
+	var sUse = "\\<";
+	var sParam = "\\:";
+	var pAny = "[\\s\\S]"
+	var pIdent = "[\\w\\$]";
+	var pIdentPath = "[\\w\\$\\.]";
+	var lStringChars = "\\'\\\"";
+	
+	var re = function(p) {
+		return new RegExp(pBegin + p + pEnd, "g");
+	};
+
 	var doT = {
-		version: '1.0.1',
+		version: '2.0.0',
 		templateSettings: {
-			evaluate:    /\{\{([\s\S]+?(\}?)+)\}\}/g,
-			interpolate: /\{\{=([\s\S]+?)\}\}/g,
-			encode:      /\{\{!([\s\S]+?)\}\}/g,
-			use:         /\{\{#([\s\S]+?)\}\}/g,
-			useParams:   /(^|[^\w$])def(?:\.|\[[\'\"])([\w$\.]+)(?:[\'\"]\])?\s*\:\s*([\w$\.]+|\"[^\"]+\"|\'[^\']+\'|\{[^\}]+\})/g,
-			define:      /\{\{##\s*([\w\.$]+)\s*(\:|=)([\s\S]+?)#\}\}/g,
-			defineParams:/^\s*([\w$]+):([\s\S]+)/,
-			conditional: /\{\{\?(\?)?\s*([\s\S]*?)\s*\}\}/g,
-			iterate:     /\{\{~\s*(?:\}\}|([\s\S]+?)\s*\:\s*([\w$]+)\s*(?:\:\s*([\w$]+))?\s*\}\})/g,
+			interpolate: re("([^" + sIterate + sConditional + sDefine + sUse + sParam + "]" + pAny + "*?)"
+				+ "(?:\\s*" + sParam + "\\s*([^" + lStringChars + sParam + "]+?))?"),
+			use: re(sUse + "\s*(" + pIdent + "+)"
+				+ "(?:\\s*" + sParam + "\\s*(" + pAny + "+?))?"),
+			define: re(sDefine + "\\s*(" + pIdent + "+)\\s*" + sParam + "(" + pAny + "*?)" + sUse),
+			defineParam: re(sDefine),
+			conditionalEnd: re(sConditional + "(" + sConditional + ")?"),
+			conditionalBegin: re(sConditional + "(" + sConditional + ")?"
+				+ "\\s*(" + pAny + "+?)"
+				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
+			iterateEnd: re(sIterate),
+			iterateBegin: re(sIterate
+				+ "\\s*(" + pAny + "+?)"
+				+ "\\s*" + sParam + "\\s*(" + pIdent + "+)"
+				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
 			varname:	'it',
 			strip:		true,
-			append:		true,
-			selfcontained: false
+			selfcontained: false,
+			interpolateFunc: encodeHTMLSource()
 		},
 		template: undefined, //fn, compile template
 		compile:  undefined  //fn, for express
@@ -33,50 +55,33 @@
 	} else {
 		global.doT = doT;
 	}
+	
+	doT.encodeHTMLSource = encodeHTMLSource;
 
 	function encodeHTMLSource() {
 		var encodeHTMLRules = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': '&#34;', "'": '&#39;', "/": '&#47;' },
-			matchHTML = /&(?!#?\w+;)|<|>|"|'|\//g;
+			matchHTML = /&|<|>|"|'|\//g;
 		return function(t) {
-			return t ? t.replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : t;
+			return t !== undefined && t !== null ? t.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : t;
 		};
 	}
-	doT.encodeHTMLSource = encodeHTMLSource;
 
-	var startend = {
-		append: { start: "'+(",      end: ")+'",      startencode:"'+encodeHTML(",      endencode: ")+'" },
-		split:  { start: "';out+=(", end: ");out+='", startencode:"';out+=encodeHTML(", endencode: ");out+='"}
-	}, skip = /$^/;
+	var skip = /$^/;
 
 	function resolveDefs(c, block, def) {
 		return ((typeof block === 'string') ? block : block.toString())
-		.replace(c.define || skip, function(m, code, assign, value) {
-			if (code.indexOf('def.') === 0) {
-				code = code.substring(4);
-			}
-			if (!(code in def)) {
-				if (assign === ':') {
-					if (c.defineParams) value.replace(c.defineParams, function(m, param, v) {
-						def[code] = {arg: param, text: v};
-					});
-					if (!(code in def)) def[code]= value;
-				} else {
-					new Function("def", "def['"+code+"']=" + value)(def);
-				}
+		.replace(c.define || skip, function(m, key, content) {
+			if (!(key in def)) {
+				def[key] = content;
 			}
 			return '';
 		})
-		.replace(c.use || skip, function(m, code) {
-			if (c.useParams) code = code.replace(c.useParams, function(m, s, d, param) {
-				if (def[d] && def[d].arg && param) {
-					var rw = (d+":"+param).replace(/'|\\/g, '_');
-					def.__exp = def.__exp || {};
-					def.__exp[rw] = def[d].text.replace(new RegExp("(^|[^\\w$])" + def[d].arg + "([^\\w$])", "g"), "$1" + param + "$2");
-					return s + "def.__exp['"+rw+"']";
-				}
-			});
-			var v = new Function("def", "return " + code)(def);
-			return v ? resolveDefs(c, v, def) : v;
+		.replace(c.use || skip, function(m, key, param) {
+			if (key in def) {
+				return def[key].replace(c.defineParam, param === undefined
+					? '' : param);
+			}
+			return '';
 		});
 	}
 
@@ -86,50 +91,63 @@
 
 	doT.template = function(tmpl, c, def) {
 		c = c || doT.templateSettings;
-		var cse = c.append ? startend.append : startend.split, needhtmlencode, sid = 0, indv,
+		var sid = 0, indv,
 			str  = (c.use || c.define) ? resolveDefs(c, tmpl, def || {}) : tmpl;
-
-		str = ("var out='" + (c.strip ? str.replace(/(^|\r|\n)\t* +| +\t*(\r|\n|$)/g,' ')
-					.replace(/\r|\n|\t|\/\*[\s\S]*?\*\//g,''): str)
+		var vars = {};
+		str = ("out='" + (c.strip ? str.replace(/(^|\r|\n)\t* +| +\t*(\r|\n|$)/g,' ')
+			.replace(/\r|\n|\t|\/\*[\s\S]*?\*\//g,''): str)
 			.replace(/'|\\/g, '\\$&')
-			.replace(c.interpolate || skip, function(m, code) {
-				return cse.start + unescape(code) + cse.end;
+			.replace(c.conditionalEnd, function(m, elsecase) {
+				return elsecase ?  "';}else{out+='" : "';}out+='";
 			})
-			.replace(c.encode || skip, function(m, code) {
-				needhtmlencode = true;
-				return cse.startencode + unescape(code) + cse.endencode;
+			.replace(c.conditionalBegin, function(m, elsecase, code, vname) {
+				code = unescape(code);
+				if (vname) {
+					vars[vname] = true;
+					code = vname + "=" + code;
+				}
+				return elsecase ? "';}else if(" + code + "){out+='" : "';if(" + code + "){out+='";
 			})
-			.replace(c.conditional || skip, function(m, elsecase, code) {
-				return elsecase ?
-					(code ? "';}else if(" + unescape(code) + "){out+='" : "';}else{out+='") :
-					(code ? "';if(" + unescape(code) + "){out+='" : "';}out+='");
+			.replace(c.iterateEnd, function() {
+				return "';} } out+='";
 			})
-			.replace(c.iterate || skip, function(m, iterate, vname, iname) {
-				if (!iterate) return "';} } out+='";
-				sid+=1; indv=iname || "i"+sid; iterate=unescape(iterate);
-				return "';var arr"+sid+"="+iterate+";if(arr"+sid+"){var "+vname+","+indv+"=-1,l"+sid+"=arr"+sid+".length-1;while("+indv+"<l"+sid+"){"
-					+vname+"=arr"+sid+"["+indv+"+=1];out+='";
+			.replace(c.iterateBegin, function(m, iterate, vname, iname) {
+				sid += 1; 
+				iname = iname || "i" + sid;
+				vars[iname] = true;
+				vars[vname] = true; 
+				var aname = "arr" + sid;
+				var lname = "l" + sid;
+				return "';var " + aname + "=" + unescape(iterate) + ";if(" + aname + "){var " + lname + "=" + aname + ".length-1;" + iname + "=-1;while(" + iname + "<" + lname + "){"
+					+ vname + "=" + aname + "[" + iname + "+=1];out+='";
 			})
-			.replace(c.evaluate || skip, function(m, code) {
-				return "';" + unescape(code) + "out+='";
+			.replace(c.interpolate, function(m, code, param) {
+				return "'+interpolate(" + unescape(code) + (param !== undefined
+					? ",'" + unescape(param) + "'"
+					: "") + ")+'";
 			})
 			+ "';return out;")
 			.replace(/\n/g, '\\n').replace(/\t/g, '\\t').replace(/\r/g, '\\r')
 			.replace(/(\s|;|\}|^|\{)out\+='';/g, '$1').replace(/\+''/g, '')
 			.replace(/(\s|;|\}|^|\{)out\+=''\+/g,'$1out+=');
 
-		if (needhtmlencode && c.selfcontained) {
-			str = "var encodeHTML=(" + encodeHTMLSource.toString() + "());" + str;
+		for (var k in vars) {
+			str = k + "," + str;
 		}
+		if (c.selfcontained) {
+			str = "interpolate=(interpolate||" + c.interpolateFunc.toString() + "())," + str;
+		}
+		return "var " + str;
+	};
+
+	doT.compile = function(tmpl, c, def) {
+		c = c || doT.templateSettings;
+		var str = doT.template(tmpl, c, def);
 		try {
-			return new Function(c.varname, str);
+			return new Function(c.varname, "interpolate", str);
 		} catch (e) {
 			if (typeof console !== 'undefined') console.log("Could not create a template function: " + str);
 			throw e;
 		}
-	};
-
-	doT.compile = function(tmpl, def) {
-		return doT.template(tmpl, null, def);
 	};
 }(this));

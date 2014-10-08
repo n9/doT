@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html><head>
+<script src="doT.js"></script>
+<style>
+textarea { display: block; width: 100%; height: 100px; }
+button { display: block; }
+</style>
+</head><body>
+<div>Source:</div>
+<textarea id="source" onchange="localStorage.setItem('source', this.value)"></textarea>
+<button onclick="doTcompile()">Compile</button>
+<div>Compiled template:</div>
+<pre id="compiled">not yet compiled</pre>
+<div>Context data (JSON):</div>
+<textarea id="data" onchange="localStorage.setItem('data', this.value)"></textarea>
+<button onclick="doTcompile(), doTevaluate()">Evaluate</button>
+<div>Output:</div>
+<pre id="output">not yet evaluated</pre>
+<script>
+	function E(id) { return document.getElementById(id); }
+	function doTcompile() { try { E('compiled').textContent = doT.template(E('source').value).toString(); } catch (e) { E('compiled').textContent = e; } }
+	function doTevaluate() { try { E('output').textContent = doT.compile(E('source').value)(JSON.parse(E('data').value), doT.templateSettings.interpolateFunc); } catch (e) { E('output').textContent = e; } }
+ 	
+	var s = localStorage.getItem('source');
+	if (s === null || s === '')
+		s = 'Hello {{it}}!';
+	E('source').value = s;
+	var d = localStorage.getItem('data');
+	if (d === null || d === '')
+		d = '"World"';
+	E('data').value = d;
+</script>
+</body></html>
