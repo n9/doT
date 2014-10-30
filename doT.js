@@ -106,7 +106,7 @@
 					vars[vname] = true;
 					code = vname + "=" + code;
 				}
-				return elsecase ? "';}else if(" + code + "){out+='" : "';if(" + code + "){out+='";
+				return elsecase ? "';}else if(_c(" + code + ")){out+='" : "';if(_c(" + code + ")){out+='";
 			})
 			.replace(c.iterateEnd, function() {
 				return "';} } out+='";
@@ -118,11 +118,11 @@
 				vars[vname] = true; 
 				var aname = "arr" + sid;
 				var lname = "l" + sid;
-				return "';var " + aname + "=" + unescape(iterate) + ";if(" + aname + "){var " + lname + "=" + aname + ".length-1;" + iname + "=-1;while(" + iname + "<" + lname + "){"
+				return "';var " + aname + "=" + unescape(iterate) + ";if(_c(" + aname + ")){var " + lname + "=" + aname + ".length-1;" + iname + "=-1;while(" + iname + "<" + lname + "){"
 					+ vname + "=" + aname + "[" + iname + "+=1];out+='";
 			})
 			.replace(c.interpolate, function(m, code, param) {
-				return "'+interpolate(" + unescape(code) + (param !== undefined
+				return "'+_i(" + unescape(code) + (param !== undefined
 					? ",'" + unescape(param) + "'"
 					: "") + ")+'";
 			})
@@ -135,7 +135,7 @@
 			str = k + "," + str;
 		}
 		if (c.selfcontained) {
-			str = "interpolate=(interpolate||" + c.interpolateFunc.toString() + "())," + str;
+			str = "_i=(_i||" + c.interpolateFunc.toString() + "()),_c=(_c||function(v){return !!v})," + str;
 		}
 		return "var " + str;
 	};
@@ -144,7 +144,7 @@
 		c = c || doT.templateSettings;
 		var str = doT.template(tmpl, c, def);
 		try {
-			return new Function(c.varname, "interpolate", str);
+			return new Function(c.varname, "_i", "_c", str);
 		} catch (e) {
 			if (typeof console !== 'undefined') console.log("Could not create a template function: " + str);
 			throw e;
