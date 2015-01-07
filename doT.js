@@ -158,7 +158,7 @@
 				var endBlock = ")+'";
 				if (name) {
 					var startBlock = "'+_b('" + name + "'" + ","
-						+ (args ? args : "null");
+						+ (args ? unescape(args) : "null");
 					if (paramBlock) {
 						return startBlock + ",{" + startParam;
 					} else {
