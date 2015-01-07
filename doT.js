@@ -12,10 +12,15 @@
 	var sDefine = "\\>";
 	var sUse = "\\<";
 	var sParam = "\\:";
+	var sBlock = "\\#"
+	var sComment = "\\/"
 	var pAny = "[\\s\\S]"
 	var pIdent = "[\\w\\$]";
 	var pIdentPath = "[\\w\\$\\.]";
 	var lStringChars = "\\'\\\"";
+	var pParamContent = "[^" + lStringChars + sParam 
+		+ "\\{\\}" // wohak for object notation, e.g. {a: b}
+		+ "]";
 	
 	var re = function(p) {
 		return new RegExp(pBegin + p + pEnd, "g");
@@ -24,8 +29,8 @@
 	var doT = {
 		version: '2.0.0',
 		templateSettings: {
-			interpolate: re("([^" + sIterate + sConditional + sDefine + sUse + sParam + "]" + pAny + "*?)"
-				+ "(?:\\s*" + sParam + "\\s*([^" + lStringChars + sParam + "]+?))?"),
+			interpolate: re("([^" + sIterate + sConditional + sDefine + sUse + sParam + sBlock + sComment + "]" + pAny + "*?)"
+				+ "(?:\\s*" + sParam + "\\s*(" + pParamContent + "+?))?"),
 			use: re(sUse + "\s*(" + pIdent + "+)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pAny + "+?))?"),
 			define: re(sDefine + "\\s*(" + pIdent + "+)\\s*" + sParam + "(" + pAny + "*?)" + sUse),
@@ -39,10 +44,10 @@
 				+ "\\s*(" + pAny + "+?)"
 				+ "\\s*" + sParam + "\\s*(" + pIdent + "+)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
+			block: re(sBlock + "(?:(" + pIdent + "+)(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
+			comment: re(sComment + pAny + "*?" + sComment),
 			varname:	'it',
 			strip:		true,
-			selfcontained: false,
-			interpolateFunc: encodeHTMLSource()
 		},
 		template: undefined, //fn, compile template
 		compile:  undefined  //fn, for express
@@ -55,16 +60,17 @@
 	} else {
 		global.doT = doT;
 	}
-	
-	doT.encodeHTMLSource = encodeHTMLSource;
 
-	function encodeHTMLSource() {
-		var encodeHTMLRules = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': '&#34;', "'": '&#39;', "/": '&#47;' },
-			matchHTML = /&|<|>|"|'|\//g;
-		return function(t) {
-			return t !== undefined && t !== null ? t.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : t;
-		};
-	}
+	var encodeHTMLRules = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': '&#34;', "'": '&#39;', "/": '&#47;' },
+		matchHTML = /&|<|>|"|'|\//g;
+	
+	doT.encodeHTML = function(t) {
+		return t !== undefined && t !== null ? t.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : t;
+	};
+	
+	doT.interpolate = doT.encodeHTML;
+	doT.condition = function(c) { return !!c; };
+	doT.block = function(name, jas, tas) { return "[" + name + Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]" }).join("") + Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k]() + "]" }).join("") + "]"; };
 
 	var skip = /$^/;
 
@@ -88,14 +94,35 @@
 	function unescape(code) {
 		return code.replace(/\\('|\\)/g, "$1").replace(/[\r\t\n]/g, ' ');
 	}
+	
+	function resolveSettings(options) {
+		if (!options)
+			return doT.templateSettings;
+		if (options.prototype === doT.templateSettings)
+			return options;
+		var resolved = Object.create(doT.templateSettings);
+		for (var prop in options) {
+			if (Object.prototype.hasOwnProperty.call(options, prop)) {
+				resolved[prop] = options[prop];
+			}
+		}
+		return resolved;
+	};
 
 	doT.template = function(tmpl, c, def) {
-		c = c || doT.templateSettings;
+		c = resolveSettings(c);
 		var sid = 0, indv,
 			str  = (c.use || c.define) ? resolveDefs(c, tmpl, def || {}) : tmpl;
 		var vars = {};
-		str = ("out='" + (c.strip ? str.replace(/(^|\r|\n)\t* +| +\t*(\r|\n|$)/g,' ')
-			.replace(/\r|\n|\t|\/\*[\s\S]*?\*\//g,''): str)
+		str = str.replace(c.comment, function(m) { 
+			return "";
+		});
+		if (c.strip) {
+			str = str
+				.replace(/(^|\r|\n)\t* +| +\t*(\r|\n|$)/g,' ')
+				.replace(/\r|\n|\t|\/\*[\s\S]*?\*\//g,'');
+		}
+		str = ("out='" + str
 			.replace(/'|\\/g, '\\$&')
 			.replace(c.conditionalEnd, function(m, elsecase) {
 				return elsecase ?  "';}else{out+='" : "';}out+='";
@@ -126,6 +153,26 @@
 					? ",'" + unescape(param) + "'"
 					: "") + ")+'";
 			})
+			.replace(c.block, function(m, name, args, paramBlock, paramName) {
+				var startParam = "'" + (paramName || "content") + "':function(){var out='";
+				var endBlock = ")+'";
+				if (name) {
+					var startBlock = "'+_b('" + name + "'" + ","
+						+ (args ? args : "null");
+					if (paramBlock) {
+						return startBlock + ",{" + startParam;
+					} else {
+						return startBlock + endBlock;
+					}
+				} else {
+					var endParam = "';return out;}"
+					if (paramBlock) {
+						return endParam + "," + startParam;
+					} else {
+						return endParam + "}" + endBlock;
+					}
+				}
+			})
 			+ "';return out;")
 			.replace(/\n/g, '\\n').replace(/\t/g, '\\t').replace(/\r/g, '\\r')
 			.replace(/(\s|;|\}|^|\{)out\+='';/g, '$1').replace(/\+''/g, '')
@@ -134,17 +181,14 @@
 		for (var k in vars) {
 			str = k + "," + str;
 		}
-		if (c.selfcontained) {
-			str = "_i=(_i||" + c.interpolateFunc.toString() + "()),_c=(_c||function(v){return !!v})," + str;
-		}
 		return "var " + str;
 	};
 
 	doT.compile = function(tmpl, c, def) {
-		c = c || doT.templateSettings;
+		c = resolveSettings(c);
 		var str = doT.template(tmpl, c, def);
 		try {
-			return new Function(c.varname, "_i", "_c", str);
+			return new Function(c.varname, "_i", "_c", "_b", str);
 		} catch (e) {
 			if (typeof console !== 'undefined') console.log("Could not create a template function: " + str);
 			throw e;

@@ -19,8 +19,8 @@ button { display: block; }
 <script>
 	function E(id) { return document.getElementById(id); }
 	function doTcompile() { try { E('compiled').textContent = doT.template(E('source').value).toString(); } catch (e) { E('compiled').textContent = e; } }
-	function doTevaluate() { try { E('output').textContent = doT.compile(E('source').value)(JSON.parse(E('data').value), doT.templateSettings.interpolateFunc); } catch (e) { E('output').textContent = e; } }
- 	
+	function doTevaluate() { try { E('output').textContent = doT.compile(E('source').value)(JSON.parse(E('data').value), doT.interpolate, doT.condition, doT.block); } catch (e) { E('output').textContent = e; } }
+	
 	var s = localStorage.getItem('source');
 	if (s === null || s === '')
 		s = 'Hello {{it}}!';
