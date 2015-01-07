@@ -13,7 +13,7 @@
 	var sUse = "\\<";
 	var sParam = "\\:";
 	var sBlock = "\\#"
-	var sComment = "\\/"
+	var sComment = "\\*"
 	var pAny = "[\\s\\S]"
 	var pIdent = "[\\w\\$]";
 	var pIdentPath = "[\\w\\$\\.]";
