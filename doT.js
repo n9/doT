@@ -45,6 +45,7 @@
 				+ "\\s*" + sParam + "\\s*(" + pIdent + "+)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
 			block: re(sBlock + "(?:(" + pIdent + "+)(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
+			variable: re(sParam + "(" + pAny + "+?)"),
 			comment: re(sComment + pAny + "*?" + sComment),
 			varname:	'it',
 			strip:		true,
@@ -172,6 +173,9 @@
 						return endParam + "}" + endBlock;
 					}
 				}
+			})
+			.replace(c.variable, function(m, command) {
+				return "';var " + command + ";out+='";
 			})
 			+ "';return out;")
 			.replace(/\n/g, '\\n').replace(/\t/g, '\\t').replace(/\r/g, '\\r')
