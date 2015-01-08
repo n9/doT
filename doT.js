@@ -44,7 +44,7 @@
 				+ "\\s*(" + pAny + "+?)"
 				+ "\\s*" + sParam + "\\s*(" + pIdent + "+)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
-			block: re(sBlock + "(?:(" + pIdent + "+)(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
+			block: re(sBlock + "(?:(" + pIdent + "+@?)(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
 			variable: re(sParam + "(" + pAny + "+?)"),
 			comment: re(sComment + pAny + "*?" + sComment),
 			varname:	'it',
@@ -71,7 +71,23 @@
 	
 	doT.interpolate = doT.encodeHTML;
 	doT.condition = function(c) { return !!c; };
-	doT.block = function(name, jas, tas) { return "[" + name + Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]" }).join("") + Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k]() + "]" }).join("") + "]"; };
+	doT.blockWriter = function(name, jas, tas) { 
+		return "[" + name
+			+ Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]" }).join("")
+			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](jas) + "]" }).join("") + "]"; 
+	};
+	doT.blockSplatter = function (name, jas, tas, _b) {
+		var nl = name.length;
+		if (!nl || name[nl - 1] != '@')
+			return _b(name, jas, tas);
+		var out = '';
+		var jl = jas.length;
+		name = name.substr(0, nl - 1); 
+		for (var i = 0; i < jl; i++)
+			out += _b(name, jas[i], tas);
+		return out;
+	};
+	doT.block = function(name, jas, tas) { return doT.blockSplatter(name, jas, tas, doT.blockWriter); }
 
 	var skip = /$^/;
 
@@ -141,11 +157,11 @@
 			})
 			.replace(c.iterateBegin, function(m, iterate, vname, iname) {
 				sid += 1; 
-				iname = iname || "i" + sid;
+				iname = iname || "_i" + sid;
 				vars[iname] = true;
 				vars[vname] = true; 
-				var aname = "arr" + sid;
-				var lname = "l" + sid;
+				var aname = "_a" + sid;
+				var lname = "_l" + sid;
 				return "';var " + aname + "=" + unescape(iterate) + ";if(_c(" + aname + ")){var " + lname + "=" + aname + ".length-1;" + iname + "=-1;while(" + iname + "<" + lname + "){"
 					+ vname + "=" + aname + "[" + iname + "+=1];out+='";
 			})
@@ -155,7 +171,7 @@
 					: "") + ")+'";
 			})
 			.replace(c.block, function(m, name, args, paramBlock, paramName) {
-				var startParam = "'" + (paramName || "content") + "':function(){var out='";
+				var startParam = "'" + (paramName || "content") + "':function(_a){var out='";
 				var endBlock = ")+'";
 				if (name) {
 					var startBlock = "'+_b('" + name + "'" + ","
