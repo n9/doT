@@ -81,7 +81,7 @@
 		if (!nl || name[nl - 1] != '@')
 			return _b(name, jas, tas);
 		var out = '';
-		var jl = jas.length;
+		var jl = jas ? jas.length : 0;
 		name = name.substr(0, nl - 1); 
 		for (var i = 0; i < jl; i++)
 			out += _b(name, jas[i], tas);

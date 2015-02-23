@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>doT tests</title>
+<link rel="stylesheet" href="http://code.jquery.com/qunit/qunit-1.17.1.css">
+</head><body>
+ <div id="qunit"></div>
+<div id="qunit-fixture"></div>
+<script src="http://code.jquery.com/qunit/qunit-1.17.1.js"></script>
+<script src="doT.js"></script>
+<script>
+
+	function doTeval(template, context, block) {
+		return doT.compile(template)(context, doT.interpolate, doT.condition, block || doT.block);
+	}
+	
+	function testEval(name, cases) {
+		QUnit.test(name, function(assert) {
+			for (var i = 0; i < cases.length; i++) {
+				var c = cases[i];
+				assert.equal(doTeval(c.t, c.it, c.b), c.e, JSON.stringify(c.it) + " > " + c.t);
+			}
+		});
+	}
+
+	var peopleData = { people: [{ name: "Joe", addresses: [ { street: "Street A", city: "A" }, { city: "B" } ] }, { name: "Steve" }] };
+	
+	testEval("Simple", [
+		{ t: "Hello world", e: "Hello world" },
+		{ t: "1 + 2 = {{1 + 2}}", e: "1 + 2 = 3" },
+		{ t: "Joe {{'Doe'.toUpperCase()}}", e: "Joe DOE" },
+		{ t: "Joe {{ { a: '1' }.a }}", e: "Joe 1" },
+		{ t: "Joe {{[1, 2, 3].length}}", e: "Joe 3" },
+		{ t: "Joe {{* just comment *}}", e: "Joe " },
+	]);	
+	
+	testEval("Context", [
+		{ it: "Hello", t: "{{it}} contains {{it.length}} letters.", e: "Hello contains 5 letters." },
+		{ it: { gn: "Joe", fn: "Doe" }, t: "Given name: {{it.gn}}, family name {{it.fn}}.", e: "Given name: Joe, family name Doe." },
+	]);	
+	
+	testEval("If", [
+		{ it: true, t: "Hello {{?it}}great{{?}} world", e: "Hello great world" },
+		{ it: false, t: "{{?it}}Yes{{??}}No{{?}}!", e: "No!" },
+		{ it: peopleData, t: "{{?it.people[0].addresses :as}}{{as.length}} address(es){{??}}No address{{?}}", e: "2 address(es)" },
+	]);
+	
+	testEval("Loop", [
+		{ it: peopleData, t: "{{@it.people[0].addresses :a}}City: {{a.city}}. {{@}}", e: "City: A. City: B. " },
+		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{ai + 1}}. city: {{a.city}}; {{@}}", e: "1. city: A; 2. city: B; " },
+		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{?ai}}, {{?}}{{ai + 1}}. city: {{a.city}}{{@}}", e: "1. city: A, 2. city: B" },
+	]);
+	
+	testEval("Block", [
+		{ it: peopleData, t: "{{#myBlock}}", e: "[myBlock]" },
+		{ it: peopleData, t: "{{#myBlock {a: 1, b: 'foo'} }}", e: "[myBlock a=[1] b=[foo]]" },
+		{ it: peopleData, t: "{{#myBlock (it.people[0].addresses[0]) }}", e: "[myBlock street=[Street A] city=[A]]" },
+		{ it: peopleData, t: "{{#myBlock.}}foo{{#}}", e: "[myBlock content=[foo]]" },
+		{ it: peopleData, t: "{{#myBlock.}}foo{{#.param}}bar{{#}}", e: "[myBlock content=[foo] param=[bar]]" },		
+		{ it: peopleData, t: "{{#myBlock.a}}foo{{#.b}}bar{{#}}", e: "[myBlock a=[foo] b=[bar]]" },		
+		{ it: peopleData, t: "{{#myBlock.a}}foo{{#.b}}bar{{#.}}zoo{{#}}", e: "[myBlock a=[foo] b=[bar] content=[zoo]]" },		
+		{ it: peopleData, t: "{{#myBlock (it.people[0].addresses[0]).}}city: {{_a.city}}{{#}}", e: "[myBlock street=[Street A] city=[A] content=[city: A]]" },
+		{ it: peopleData, t: "{{#myBlock@ (it.people[0].addresses).}}city: {{_a.city}}{{#}}", e: "[myBlock street=[Street A] city=[A] content=[city: A]][myBlock city=[B] content=[city: B]]" },
+		{ it: peopleData, t: "{{#person@ (it.people).}}name: {{_a.name}} {{#address@ (_a.addresses).}}city: {{_a.city}}{{#}}{{#}}", e: "[person name=[Joe] addresses=[[object Object],[object Object]] content=[name: Joe [address street=[Street A] city=[A] content=[city: A]][address city=[B] content=[city: B]]]][person name=[Steve] content=[name: Steve ]]" },
+	]);
+	
+</script>
+</body></html>
