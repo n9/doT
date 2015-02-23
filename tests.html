@@ -46,22 +46,22 @@
 	]);
 	
 	testEval("Loop", [
-		{ it: peopleData, t: "{{@it.people[0].addresses :a}}City: {{a.city}}. {{@}}", e: "City: A. City: B. " },
-		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{ai + 1}}. city: {{a.city}}; {{@}}", e: "1. city: A; 2. city: B; " },
-		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{?ai}}, {{?}}{{ai + 1}}. city: {{a.city}}{{@}}", e: "1. city: A, 2. city: B" },
+		{ it: peopleData, t: "{{@it.people[0].addresses :a}}City: {{a.city}}.{{@}}", e: "City: A.City: B." },
+		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{ai + 1}}. city: {{a.city}};{{@}}", e: "1. city: A;2. city: B;" },
+		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{?ai}},{{' '}}{{?}}{{ai + 1}}. city: {{a.city}}{{@}}", e: "1. city: A, 2. city: B" },
 	]);
 	
 	testEval("Block", [
 		{ it: peopleData, t: "{{#myBlock}}", e: "[myBlock]" },
 		{ it: peopleData, t: "{{#myBlock {a: 1, b: 'foo'} }}", e: "[myBlock a=[1] b=[foo]]" },
 		{ it: peopleData, t: "{{#myBlock (it.people[0].addresses[0]) }}", e: "[myBlock street=[Street A] city=[A]]" },
-		{ it: peopleData, t: "{{#myBlock.}}foo{{#}}", e: "[myBlock content=[foo]]" },
-		{ it: peopleData, t: "{{#myBlock.}}foo{{#.param}}bar{{#}}", e: "[myBlock content=[foo] param=[bar]]" },		
-		{ it: peopleData, t: "{{#myBlock.a}}foo{{#.b}}bar{{#}}", e: "[myBlock a=[foo] b=[bar]]" },		
+		{ it: peopleData, t: "{{#myBlock.}} foo {{#}}", e: "[myBlock content=[foo]]" },
+		{ it: peopleData, t: "{{#myBlock.}} foo {{#.param}} bar {{#}}", e: "[myBlock content=[foo] param=[bar]]" },		
+		{ it: peopleData, t: "{{#myBlock.a}} foo {{#.b}} bar {{#}}", e: "[myBlock a=[foo] b=[bar]]" },		
 		{ it: peopleData, t: "{{#myBlock.a}}foo{{#.b}}bar{{#.}}zoo{{#}}", e: "[myBlock a=[foo] b=[bar] content=[zoo]]" },		
-		{ it: peopleData, t: "{{#myBlock (it.people[0].addresses[0]).}}city: {{_a.city}}{{#}}", e: "[myBlock street=[Street A] city=[A] content=[city: A]]" },
-		{ it: peopleData, t: "{{#myBlock@ (it.people[0].addresses).}}city: {{_a.city}}{{#}}", e: "[myBlock street=[Street A] city=[A] content=[city: A]][myBlock city=[B] content=[city: B]]" },
-		{ it: peopleData, t: "{{#person@ (it.people).}}name: {{_a.name}} {{#address@ (_a.addresses).}}city: {{_a.city}}{{#}}{{#}}", e: "[person name=[Joe] addresses=[[object Object],[object Object]] content=[name: Joe [address street=[Street A] city=[A] content=[city: A]][address city=[B] content=[city: B]]]][person name=[Steve] content=[name: Steve ]]" },
+		{ it: peopleData, t: "{{#myBlock (it.people[0].addresses[0]).}} city: {{_a.city}} {{#}}", e: "[myBlock street=[Street A] city=[A] content=[city: A]]" },
+		{ it: peopleData, t: "{{#myBlock@ (it.people[0].addresses).}} city: {{_a.city}} {{#}}", e: "[myBlock street=[Street A] city=[A] content=[city: A]][myBlock city=[B] content=[city: B]]" },
+		{ it: peopleData, t: "{{#person@ (it.people).}} name: {{_a.name}} {{#address@ (_a.addresses).}} city: {{_a.city}} {{#}} {{#}}", e: "[person name=[Joe] addresses=[[object Object],[object Object]] content=[name: Joe [address street=[Street A] city=[A] content=[city: A]][address city=[B] content=[city: B]]]][person name=[Steve] content=[name: Steve ]]" },
 	]);
 	
 </script>

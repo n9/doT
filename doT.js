@@ -47,6 +47,10 @@
 			block: re(sBlock + "(?:(" + pIdent + "+@?)(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
 			variable: re(sParam + "(" + pAny + "+?)"),
 			comment: re(sComment + pAny + "*?" + sComment),
+			innerBeginText: "{{*<*}}",
+			innerEndText: "{{*>*}}",
+			innerBeginMatch: pBegin + sComment + "<" + sComment + pEnd,
+			innerEndMatch: pBegin + sComment + ">" + sComment + pEnd,
 			varname:	'it',
 			strip:		true,
 		},
@@ -131,18 +135,18 @@
 		var sid = 0, indv,
 			str  = (c.use || c.define) ? resolveDefs(c, tmpl, def || {}) : tmpl;
 		var vars = {};
-		str = str.replace(c.comment, function(m) { 
-			return "";
-		});
 		if (c.strip) {
 			str = str
 				.replace(/(^|\r|\n)\t* +| +\t*(\r|\n|$)/g,' ')
 				.replace(/\r|\n|\t|\/\*[\s\S]*?\*\//g,'');
 		}
+		var innerBegin = c.innerBeginText + "'";
+		var innerEnd = "'" + c.innerEndText;
+		
 		str = ("out='" + str
 			.replace(/'|\\/g, '\\$&')
 			.replace(c.conditionalEnd, function(m, elsecase) {
-				return elsecase ?  "';}else{out+='" : "';}out+='";
+				return elsecase ?  innerEnd + ";}else{out+=" + innerBegin : innerEnd + ";}out+='";
 			})
 			.replace(c.conditionalBegin, function(m, elsecase, code, vname) {
 				code = unescape(code);
@@ -150,10 +154,10 @@
 					vars[vname] = true;
 					code = vname + "=" + code;
 				}
-				return elsecase ? "';}else if(_c(" + code + ")){out+='" : "';if(_c(" + code + ")){out+='";
+				return elsecase ? innerEnd + ";}else if(_c(" + code + ")){out+=" + innerBegin : "';if(_c(" + code + ")){out+=" + innerBegin;
 			})
 			.replace(c.iterateEnd, function() {
-				return "';} } out+='";
+				return innerEnd + ";} } out+='";
 			})
 			.replace(c.iterateBegin, function(m, iterate, vname, iname) {
 				sid += 1; 
@@ -163,15 +167,10 @@
 				var aname = "_a" + sid;
 				var lname = "_l" + sid;
 				return "';var " + aname + "=" + unescape(iterate) + ";if(_c(" + aname + ")){var " + lname + "=" + aname + ".length-1;" + iname + "=-1;while(" + iname + "<" + lname + "){"
-					+ vname + "=" + aname + "[" + iname + "+=1];out+='";
-			})
-			.replace(c.interpolate, function(m, code, param) {
-				return "'+_i(" + unescape(code) + (param !== undefined
-					? ",'" + unescape(param) + "'"
-					: "") + ")+'";
+					+ vname + "=" + aname + "[" + iname + "+=1];out+=" + innerBegin;
 			})
 			.replace(c.block, function(m, name, args, paramBlock, paramName) {
-				var startParam = "'" + (paramName || "content") + "':function(_a){var out='";
+				var startParam = "'" + (paramName || "content") + "':function(_a){var out=" + innerBegin;
 				var endBlock = ")+'";
 				if (name) {
 					var startBlock = "'+_b('" + name + "'" + ","
@@ -182,7 +181,7 @@
 						return startBlock + endBlock;
 					}
 				} else {
-					var endParam = "';return out;}"
+					var endParam = innerEnd + ";return out;}"
 					if (paramBlock) {
 						return endParam + "," + startParam;
 					} else {
@@ -190,10 +189,26 @@
 					}
 				}
 			})
+			+ "';return out;");
+		if (c.strip) {
+			str = str
+				.replace(new RegExp(c.innerBeginMatch + "' ", "g"), "'")
+				.replace(new RegExp(" '" + c.innerEndMatch, "g"), "'")
+		}
+		str = str
+			.replace(c.comment, function(m) { 
+				return "";
+			})
+			.replace(c.interpolate, function(m, code, param) {
+				return "'+_i(" + unescape(code) + (param !== undefined
+					? ",'" + unescape(param) + "'"
+					: "") + ")+'";
+			})
 			.replace(c.variable, function(m, command) {
 				return "';var " + command + ";out+='";
-			})
-			+ "';return out;")
+			})					
+			.replace(/\/\*<\*\//g, "")
+			.replace(/\/\*>\*\//g, "")
 			.replace(/\n/g, '\\n').replace(/\t/g, '\\t').replace(/\r/g, '\\r')
 			.replace(/(\s|;|\}|^|\{)out\+='';/g, '$1').replace(/\+''/g, '')
 			.replace(/(\s|;|\}|^|\{)out\+=''\+/g,'$1out+=');
