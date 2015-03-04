@@ -36,15 +36,16 @@
 			define: re(sDefine + "\\s*(" + pIdent + "+)\\s*" + sParam + "(" + pAny + "*?)" + sUse),
 			defineParam: re(sDefine),
 			conditionalEnd: re(sConditional + "(" + sConditional + ")?"),
-			conditionalBegin: re(sConditional + "(" + sConditional + ")?"
-				+ "\\s*(" + pAny + "+?)"
+			conditionalBegin: re(sConditional + "(" + sConditional + ")?" + "(?:(" + sBlock + ")(" + pIdent + "+))?"
+				+ "\\s*(" + pAny + "*?)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
 			iterateEnd: re(sIterate),
 			iterateBegin: re(sIterate
 				+ "\\s*(" + pAny + "+?)"
 				+ "\\s*" + sParam + "\\s*(" + pIdent + "+)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
-			block: re(sBlock + "(?:(" + pIdent + "+@?)(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
+			blockEnd: re(sBlock + "(\\.(" + pIdent + "*))?"),
+			block: re(sBlock + "(?:(" + pIdent + "+@?)?(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
 			variable: re(sParam + "(" + pAny + "+?)"),
 			comment: re(sComment + pAny + "*?" + sComment),
 			innerBeginText: "{{*<*}}",
@@ -143,13 +144,39 @@
 		var innerBegin = c.innerBeginText + "'";
 		var innerEnd = "'" + c.innerEndText;
 		
+		function processBlock(name, args, paramBlock, paramName) {
+			var startParam = "'" + (paramName || "content") + "':function(_a){var out=" + innerBegin;
+			var endBlock = ")+'";
+			if (name || args) {
+				var startBlock = name 
+					? "'+_b('" + name + "'" + "," + 
+						(args ? unescape(args) : "null")
+					: "'+" + unescape(args) + "(";
+				if (paramBlock) {
+					return startBlock + (name ? "," : "") + "{" + startParam;
+				} else {
+					return startBlock + endBlock;
+				}
+			} else {
+				var endParam = innerEnd + ";return out;}"
+				if (paramBlock) {
+					return endParam + "," + startParam;
+				} else {
+					return endParam + "}" + endBlock;
+				}
+			}
+		};
+		
 		str = ("out='" + str
 			.replace(/'|\\/g, '\\$&')
 			.replace(c.conditionalEnd, function(m, elsecase) {
 				return elsecase ?  innerEnd + ";}else{out+=" + innerBegin : innerEnd + ";}out+='";
 			})
-			.replace(c.conditionalBegin, function(m, elsecase, code, vname) {
+			.replace(c.conditionalBegin, function(m, elsecase, block, blockName, code, vname) {
 				code = unescape(code);
+				if (block) {
+					code = "_bm('" + blockName + "'," + (code || "null") + ")";
+				}
 				if (vname) {
 					vars[vname] = true;
 					code = vname + "=" + code;
@@ -169,25 +196,11 @@
 				return "';var " + aname + "=" + unescape(iterate) + ";if(_c(" + aname + ")){var " + lname + "=" + aname + ".length-1;" + iname + "=-1;while(" + iname + "<" + lname + "){"
 					+ vname + "=" + aname + "[" + iname + "+=1];out+=" + innerBegin;
 			})
+			.replace(c.blockEnd, function(m, paramBlock, paramName) {
+				return processBlock(null, null, paramBlock, paramName);
+			})			
 			.replace(c.block, function(m, name, args, paramBlock, paramName) {
-				var startParam = "'" + (paramName || "content") + "':function(_a){var out=" + innerBegin;
-				var endBlock = ")+'";
-				if (name) {
-					var startBlock = "'+_b('" + name + "'" + ","
-						+ (args ? unescape(args) : "null");
-					if (paramBlock) {
-						return startBlock + ",{" + startParam;
-					} else {
-						return startBlock + endBlock;
-					}
-				} else {
-					var endParam = innerEnd + ";return out;}"
-					if (paramBlock) {
-						return endParam + "," + startParam;
-					} else {
-						return endParam + "}" + endBlock;
-					}
-				}
+				return processBlock(name, args, paramBlock, paramName);
 			})
 			+ "';return out;");
 		if (c.strip) {
@@ -223,7 +236,7 @@
 		c = resolveSettings(c);
 		var str = doT.template(tmpl, c, def);
 		try {
-			return new Function(c.varname, "_i", "_c", "_b", str);
+			return new Function(c.varname, "_i", "_c", "_b", "_bm", str);
 		} catch (e) {
 			if (typeof console !== 'undefined') console.log("Could not create a template function: " + str);
 			throw e;
