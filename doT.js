@@ -234,11 +234,18 @@
 
 	doT.compile = function(tmpl, c, def) {
 		c = resolveSettings(c);
-		var str = doT.template(tmpl, c, def);
+		return doT.wrap(doT.template(tmpl, c, def), c);
+	};
+	doT.globals = function(c) {
+		c = resolveSettings(c);
+		return [c.varname, "_i", "_c", "_b", "_bm"];
+	},
+	doT.wrap = function(source, c) {
+		c = resolveSettings(c);
 		try {
-			return new Function(c.varname, "_i", "_c", "_b", "_bm", str);
+			return new Function(c.varname, "_i", "_c", "_b", "_bm", source);
 		} catch (e) {
-			if (typeof console !== 'undefined') console.log("Could not create a template function: " + str);
+			if (typeof console !== 'undefined') console.log("Could not create a template function: " + source);
 			throw e;
 		}
 	};

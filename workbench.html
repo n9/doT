@@ -5,31 +5,80 @@
 <style>
 textarea { display: block; width: 100%; height: 100px; }
 button { display: block; }
+pre { white-space: pre-line; }
 </style>
 </head><body>
 <div>Source:</div>
-<textarea id="source" onchange="localStorage.setItem('source', this.value)"></textarea>
-<button onclick="doTcompile()">Compile</button>
+<textarea id="source"></textarea>
 <div>Compiled template:</div>
 <pre id="compiled">not yet compiled</pre>
 <div>Context data (JSON):</div>
-<textarea id="data" onchange="localStorage.setItem('data', this.value)"></textarea>
-<button onclick="doTcompile(), doTevaluate()">Evaluate</button>
+<textarea id="data"></textarea>
 <div>Output:</div>
 <pre id="output">not yet evaluated</pre>
+<pre id="diag">not yet evaluated</pre>
+<script src="doT.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jshint/2.6.2/jshint.js"></script>
 <script>
 	function E(id) { return document.getElementById(id); }
-	function doTcompile() { try { E('compiled').textContent = doT.template(E('source').value).toString(); } catch (e) { E('compiled').textContent = e; } }
-	function doTevaluate() { try { E('output').textContent = doT.compile(E('source').value)(JSON.parse(E('data').value), doT.interpolate, doT.condition, doT.block); } catch (e) { E('output').textContent = e; } }
-	
+
+	var eSource = E('source');
+	var eData = E('data');
+	var eCompiled = E('compiled');
+	var eOutput = E('output');
+	var eDiag = E('diag');
+	var dotGlobals = {};
+	doT.globals().forEach(function(v) {
+		dotGlobals[v] = true;
+	});
+
+	function doTcompile() { 
+		var source = eSource.value;
+		var data = eData.value;
+		try {
+			localStorage.setItem('source', source)
+			localStorage.setItem('data', data)
+		} catch (e) {
+			// ignore
+		}
+		
+		var compiled; 
+		try { 
+			compiled = doT.template(source);
+			eCompiled.textContent = compiled;
+		} catch (e) {
+			eCompiled.textContent = e;
+			return;
+		}
+				
+		try {
+			var r = JSHINT(compiled, null, dotGlobals);
+			eDiag.textContent = "errors: " + JSHINT.errors.map(function(e) { return "[" + e.line + "," + e.character + "] " + e.reason; }).join("\r\n")
+				+ "\r\nundefs: " + JSHINT.undefs.map(function(u) { return "[" + u[2].line + "," + u[2].character + "] " + u[2].value; }).join("\r\n");
+		} catch (e) {
+			eDiag.textContent = e;
+		}
+		
+		try { 
+			var output = doT.wrap(compiled)(JSON.parse(eData.value), doT.interpolate, doT.condition, doT.block);
+			eOutput.textContent = output;
+		} catch (e) {
+			eOutput.textContent = e;
+		}
+	}
+		
 	var s = localStorage.getItem('source');
 	if (s === null || s === '')
 		s = 'Hello {{it}}!';
-	E('source').value = s;
+	eSource.value = s;
+	eSource.onchange = doTcompile;
+	eSource.onkeyup = doTcompile;
 	var d = localStorage.getItem('data');
 	if (d === null || d === '')
 		d = '"World"';
-	E('data').value = d;
+	eData.value = d;
+	eData.onchange = doTcompile;
+	eData.onkeyup = doTcompile;
+	doTcompile();
 </script>
-<script src="doT.js"></script>
 </body></html>
