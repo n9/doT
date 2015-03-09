@@ -133,6 +133,9 @@
 
 	doT.template = function(tmpl, c, def) {
 		c = resolveSettings(c);
+		tmpl = tmpl.replace(c.comment, function(m) { 
+			return "";
+		});
 		var sid = 0, indv,
 			str  = (c.use || c.define) ? resolveDefs(c, tmpl, def || {}) : tmpl;
 		var vars = {};
@@ -207,11 +210,11 @@
 			str = str
 				.replace(new RegExp(c.innerBeginMatch + "' ", "g"), "'")
 				.replace(new RegExp(" '" + c.innerEndMatch, "g"), "'")
+				.replace(c.comment, function(m) { 
+					return "";
+				});
 		}
 		str = str
-			.replace(c.comment, function(m) { 
-				return "";
-			})
 			.replace(c.interpolate, function(m, code, param) {
 				return "'+_i(" + unescape(code) + (param !== undefined
 					? ",'" + unescape(param) + "'"

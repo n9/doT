@@ -20,65 +20,67 @@ pre { white-space: pre-line; }
 <script src="doT.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jshint/2.6.2/jshint.js"></script>
 <script>
-	function E(id) { return document.getElementById(id); }
+	(function() {
+		function E(id) { return document.getElementById(id); }
 
-	var eSource = E('source');
-	var eData = E('data');
-	var eCompiled = E('compiled');
-	var eOutput = E('output');
-	var eDiag = E('diag');
-	var dotGlobals = {};
-	doT.globals().forEach(function(v) {
-		dotGlobals[v] = true;
-	});
+		var eSource = E('source');
+		var eData = E('data');
+		var eCompiled = E('compiled');
+		var eOutput = E('output');
+		var eDiag = E('diag');
+		var dotGlobals = {};
+		doT.globals().forEach(function(v) {
+			dotGlobals[v] = true;
+		});
 
-	function doTcompile() { 
-		var source = eSource.value;
-		var data = eData.value;
-		try {
-			localStorage.setItem('source', source)
-			localStorage.setItem('data', data)
-		} catch (e) {
-			// ignore
+		function doTcompile() { 
+			var source = eSource.value;
+			var data = eData.value;
+			try {
+				localStorage.setItem('source', source)
+				localStorage.setItem('data', data)
+			} catch (e) {
+				// ignore
+			}
+			
+			var compiled; 
+			try { 
+				compiled = doT.template(source);
+				eCompiled.textContent = compiled;
+			} catch (e) {
+				eCompiled.textContent = e;
+				return;
+			}
+					
+			try {
+				var r = JSHINT(compiled, null, dotGlobals);
+				eDiag.textContent = "errors: " + JSHINT.errors.map(function(e) { return "[" + e.line + "," + e.character + "] " + e.reason; }).join("\r\n")
+					+ "\r\nundefs: " + JSHINT.undefs.map(function(u) { return "[" + u[2].line + "," + u[2].character + "] " + u[2].value; }).join("\r\n");
+			} catch (e) {
+				eDiag.textContent = e;
+			}
+			
+			try { 
+				var output = doT.wrap(compiled)(JSON.parse(eData.value), doT.interpolate, doT.condition, doT.block);
+				eOutput.textContent = output;
+			} catch (e) {
+				eOutput.textContent = e;
+			}
 		}
-		
-		var compiled; 
-		try { 
-			compiled = doT.template(source);
-			eCompiled.textContent = compiled;
-		} catch (e) {
-			eCompiled.textContent = e;
-			return;
-		}
-				
-		try {
-			var r = JSHINT(compiled, null, dotGlobals);
-			eDiag.textContent = "errors: " + JSHINT.errors.map(function(e) { return "[" + e.line + "," + e.character + "] " + e.reason; }).join("\r\n")
-				+ "\r\nundefs: " + JSHINT.undefs.map(function(u) { return "[" + u[2].line + "," + u[2].character + "] " + u[2].value; }).join("\r\n");
-		} catch (e) {
-			eDiag.textContent = e;
-		}
-		
-		try { 
-			var output = doT.wrap(compiled)(JSON.parse(eData.value), doT.interpolate, doT.condition, doT.block);
-			eOutput.textContent = output;
-		} catch (e) {
-			eOutput.textContent = e;
-		}
-	}
-		
-	var s = localStorage.getItem('source');
-	if (s === null || s === '')
-		s = 'Hello {{it}}!';
-	eSource.value = s;
-	eSource.onchange = doTcompile;
-	eSource.onkeyup = doTcompile;
-	var d = localStorage.getItem('data');
-	if (d === null || d === '')
-		d = '"World"';
-	eData.value = d;
-	eData.onchange = doTcompile;
-	eData.onkeyup = doTcompile;
-	doTcompile();
+			
+		var s = localStorage.getItem('source');
+		if (s === null || s === '')
+			s = 'Hello {{it}}!';
+		eSource.value = s;
+		eSource.onchange = doTcompile;
+		eSource.onkeyup = doTcompile;
+		var d = localStorage.getItem('data');
+		if (d === null || d === '')
+			d = '"World"';
+		eData.value = d;
+		eData.onchange = doTcompile;
+		eData.onkeyup = doTcompile;
+		doTcompile();
+	})();
 </script>
 </body></html>

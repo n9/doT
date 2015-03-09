@@ -54,6 +54,7 @@
 	testEval("If", [
 		{ it: true, t: "Hello {{?it}}great{{?}} world", e: "Hello great world" },
 		{ it: false, t: "{{?it}}Yes{{??}}No{{?}}!", e: "No!" },
+		{ it: false, t: "{{*{{?it}}Yes{{??}}No{{?}}*}}!", e: "!" },		
 		{ it: peopleData, t: "{{?it.people[0].addresses :as}}{{as.length}} address(es){{??}}No address{{?}}", e: "2 address(es)" },
 	]);
 	
