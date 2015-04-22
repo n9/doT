@@ -151,12 +151,12 @@
 		
 		function processBlock(name, args, paramBlock, paramName) {
 			var startParam = "'" + (paramName || "content") + "':function(_a){var out=" + innerBegin;
-			var endBlock = ")+'";
+			var endBlock = "))+'";
 			if (name || args) {
 				var startBlock = name 
-					? "'+_b('" + name + "'" + "," + 
+					? "'+(_b('" + name + "'" + "," + 
 						(args ? unescape(args) : "null")
-					: "'+" + unescape(args) + "(";
+					: "'+_i(" + unescape(args) + "(";
 				if (paramBlock) {
 					return startBlock + (name ? "," : "") + "{" + startParam;
 				} else {
