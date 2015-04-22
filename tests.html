@@ -44,6 +44,7 @@
 		{ t: "Joe {{ { a: '1' }.a }}", e: "Joe 1" },
 		{ t: "Joe {{[1, 2, 3].length}}", e: "Joe 3" },
 		{ t: "Joe {{* just comment *}}", e: "Joe " },
+		{ t: "Foo {{:x = 'a'}} bar {{;x += 'b'}} zoo {{x}}", e: "Foo  bar  zoo ab" },
 	]);	
 	
 	testEval("Context", [

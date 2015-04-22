@@ -13,6 +13,7 @@
 	var sUse = "\\<";
 	var sParam = "\\:";
 	var sBlock = "\\#"
+	var sStatement = "\\;";	
 	var sComment = "\\*"
 	var pAny = "[\\s\\S]"
 	var pIdent = "[\\w\\$]";
@@ -29,7 +30,7 @@
 	var doT = {
 		version: '2.0.0',
 		templateSettings: {
-			interpolate: re("([^" + sIterate + sConditional + sDefine + sUse + sParam + sBlock + sComment + "]" + pAny + "*?)"
+			interpolate: re("([^" + sIterate + sConditional + sDefine + sUse + sParam + sBlock + sComment + sStatement + "]" + pAny + "*?)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pParamContent + "+?))?"),
 			use: re(sUse + "\s*(" + pIdent + "+)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pAny + "+?))?"),
@@ -47,6 +48,7 @@
 			blockEnd: re(sBlock + "(\\.(" + pIdent + "*))?"),
 			block: re(sBlock + "(?:(" + pIdent + "+@?)?(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
 			variable: re(sParam + "(" + pAny + "+?)"),
+			statement: re(sStatement + "(" + pAny + "+?)"),
 			comment: re(sComment + pAny + "*?" + sComment),
 			innerBeginText: "{{*<*}}",
 			innerEndText: "{{*>*}}",
@@ -215,14 +217,17 @@
 				});
 		}
 		str = str
+			.replace(c.statement, function(m, code) {
+				return "';" + unescape(code) + ";out+='";
+			})	
+			.replace(c.variable, function(m, code) {
+				return "';var " + unescape(code) + ";out+='";
+			})	
 			.replace(c.interpolate, function(m, code, param) {
 				return "'+_i(" + unescape(code) + (param !== undefined
 					? ",'" + unescape(param) + "'"
 					: "") + ")+'";
 			})
-			.replace(c.variable, function(m, command) {
-				return "';var " + command + ";out+='";
-			})					
 			.replace(/\/\*<\*\//g, "")
 			.replace(/\/\*>\*\//g, "")
 			.replace(/\n/g, '\\n').replace(/\t/g, '\\t').replace(/\r/g, '\\r')
