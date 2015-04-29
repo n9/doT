@@ -5,13 +5,13 @@
 <style>
 textarea { display: block; width: 100%; height: 100px; }
 button { display: block; }
-pre { white-space: pre-line; }
+pre { white-space: pre-wrap; }
 </style>
 </head><body>
 <div>Source:</div>
 <textarea id="source"></textarea>
-<div>Compiled template:</div>
-<pre id="compiled">not yet compiled</pre>
+<div>Compiled template (<input type="checkbox" id="beautify"> beautify):</div>
+<pre id="compiled" class="prettyprint">not yet compiled</pre>
 <div>Context data (JSON):</div>
 <textarea id="data"></textarea>
 <div>Output:</div>
@@ -19,6 +19,9 @@ pre { white-space: pre-line; }
 <pre id="diag">not yet evaluated</pre>
 <script src="doT.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jshint/2.6.2/jshint.js"></script>
+<script src="https://cdn.rawgit.com/beautify-web/js-beautify/master/js/lib/beautify.js"></script>
+<script src="https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js?autorun=false"></script>
+<style>li.L0, li.L1, li.L2, li.L3,li.L5, li.L6, li.L7, li.L8{ list-style-type: decimal !important }</style>
 <script>
 	(function() {
 		function E(id) { return document.getElementById(id); }
@@ -28,6 +31,7 @@ pre { white-space: pre-line; }
 		var eCompiled = E('compiled');
 		var eOutput = E('output');
 		var eDiag = E('diag');
+		var eBeautify = E('beautify');
 		var dotGlobals = {};
 		doT.globals().forEach(function(v) {
 			dotGlobals[v] = true;
@@ -36,9 +40,11 @@ pre { white-space: pre-line; }
 		function doTcompile() { 
 			var source = eSource.value;
 			var data = eData.value;
+			var beautify = eBeautify.checked;
 			try {
 				localStorage.setItem('source', source)
 				localStorage.setItem('data', data)
+				localStorage.setItem('nobeautify', beautify ? "" : "t")
 			} catch (e) {
 				// ignore
 			}
@@ -46,7 +52,9 @@ pre { white-space: pre-line; }
 			var compiled; 
 			try { 
 				compiled = doT.template(source);
-				eCompiled.textContent = compiled;
+				if (beautify)
+					compiled = js_beautify(compiled);
+				eCompiled.innerHTML = PR.prettyPrintOne(doT.encodeHTML(compiled), "js", true);
 			} catch (e) {
 				eCompiled.textContent = e;
 				return;
@@ -74,6 +82,10 @@ pre { white-space: pre-line; }
 		eSource.value = s;
 		eSource.onchange = doTcompile;
 		eSource.onkeyup = doTcompile;
+		var b = localStorage.getItem('nobeautify');
+		eBeautify.checked = !b;
+		eBeautify.onclick = doTcompile;
+		eBeautify.onchange = doTcompile;
 		var d = localStorage.getItem('data');
 		if (d === null || d === '')
 			d = '"World"';

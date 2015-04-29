@@ -63,6 +63,7 @@
 		{ it: peopleData, t: "{{@it.people[0].addresses :a}}City: {{a.city}}.{{@}}", e: "City: A.City: B." },
 		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{ai + 1}}. city: {{a.city}};{{@}}", e: "1. city: A;2. city: B;" },
 		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{?ai}},{{' '}}{{?}}{{ai + 1}}. city: {{a.city}}{{@}}", e: "1. city: A, 2. city: B" },
+		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{ai + 1}}. city: {{a.city}}{{@@}},{{' '}}{{@}}", e: "1. city: A, 2. city: B" },
 	]);
 	
 	testEval("Block", [

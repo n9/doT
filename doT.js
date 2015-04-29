@@ -40,7 +40,7 @@
 			conditionalBegin: re(sConditional + "(" + sConditional + ")?" + "(?:(" + sBlock + ")(" + pIdent + "+))?"
 				+ "\\s*(" + pAny + "*?)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
-			iterateEnd: re(sIterate),
+			iterateEnd: re(sIterate + "(" + sIterate + ")?"),
 			iterateBegin: re(sIterate
 				+ "\\s*(" + pAny + "+?)"
 				+ "\\s*" + sParam + "\\s*(" + pIdent + "+)"
@@ -54,8 +54,9 @@
 			innerEndText: "{{*>*}}",
 			innerBeginMatch: pBegin + sComment + "<" + sComment + pEnd,
 			innerEndMatch: pBegin + sComment + ">" + sComment + pEnd,
-			varname:	'it',
-			strip:		true,
+			varname: 'it',
+			loopFunction: "_l=function(a,f,sf){var o='';if(_c(a)){var l=a.length-1,i=-1,s='';while(i<l){if(sf&&i===0)s=sf();o+=s+f(a[++i],i);}}return o;}",
+			strip: true
 		},
 		template: undefined, //fn, compile template
 		compile:  undefined  //fn, for express
@@ -172,6 +173,7 @@
 			}
 		};
 		
+		var needsLoop = false;
 		str = ("out='" + str
 			.replace(/'|\\/g, '\\$&')
 			.replace(c.conditionalEnd, function(m, elsecase) {
@@ -188,18 +190,16 @@
 				}
 				return elsecase ? innerEnd + ";}else if(_c(" + code + ")){out+=" + innerBegin : "';if(_c(" + code + ")){out+=" + innerBegin;
 			})
-			.replace(c.iterateEnd, function() {
-				return innerEnd + ";} } out+='";
+			.replace(c.iterateEnd, function(m, withSeparator) {
+				return innerEnd + ";return out;}" + (withSeparator ? ",function(){var out=" + innerBegin : ")+'");
 			})
 			.replace(c.iterateBegin, function(m, iterate, vname, iname) {
 				sid += 1; 
 				iname = iname || "_i" + sid;
 				vars[iname] = true;
 				vars[vname] = true; 
-				var aname = "_a" + sid;
-				var lname = "_l" + sid;
-				return "';var " + aname + "=" + unescape(iterate) + ";if(_c(" + aname + ")){var " + lname + "=" + aname + ".length-1;" + iname + "=-1;while(" + iname + "<" + lname + "){"
-					+ vname + "=" + aname + "[" + iname + "+=1];out+=" + innerBegin;
+				needsLoop = true;
+				return "'+_l(" + unescape(iterate) + ",function(" + vname + "," + iname + "){var out=" + innerBegin;
 			})
 			.replace(c.blockEnd, function(m, paramBlock, paramName) {
 				return processBlock(null, null, paramBlock, paramName);
@@ -210,8 +210,8 @@
 			+ "';return out;");
 		if (c.strip) {
 			str = str
-				.replace(new RegExp(c.innerBeginMatch + "' ", "g"), "'")
-				.replace(new RegExp(" '" + c.innerEndMatch, "g"), "'")
+				.replace(new RegExp(c.innerBeginMatch + "'\\s*", "g"), "'")
+				.replace(new RegExp("\\s*'" + c.innerEndMatch, "g"), "'")
 				.replace(c.comment, function(m) { 
 					return "";
 				});
@@ -236,6 +236,9 @@
 
 		for (var k in vars) {
 			str = k + "," + str;
+		}
+		if (needsLoop) {
+			str = c.loopFunction + ',' + str;
 		}
 		return "var " + str;
 	};
