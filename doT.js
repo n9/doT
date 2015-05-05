@@ -144,8 +144,10 @@
 		var vars = {};
 		if (c.strip) {
 			str = str
-				.replace(/(^|\r|\n)\t* +| +\t*(\r|\n|$)/g,' ')
-				.replace(/\r|\n|\t|\/\*[\s\S]*?\*\//g,'');
+				.replace(/(^|\r|\n)[\t ]*|[ \t]*(\r|\n|$)/g,'\n')
+				.replace(/(^|\r|\n)[\t ]*|[ \t]*(\r|\n|$)/g,'\n')
+				.replace(/\n+/g,'\n')
+				.replace(/^\n|\n$/g,'');
 		}
 		var innerBegin = c.innerBeginText + "'";
 		var innerEnd = "'" + c.innerEndText;
@@ -210,8 +212,8 @@
 			+ "';return out;");
 		if (c.strip) {
 			str = str
-				.replace(new RegExp(c.innerBeginMatch + "'\\s*", "g"), "'")
-				.replace(new RegExp("\\s*'" + c.innerEndMatch, "g"), "'")
+				.replace(new RegExp(c.innerBeginMatch + "'\\n", "g"), "'")
+				.replace(new RegExp("\\n*'" + c.innerEndMatch, "g"), "'")
 				.replace(c.comment, function(m) { 
 					return "";
 				});
