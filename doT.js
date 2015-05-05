@@ -2,6 +2,9 @@
 // 2011, Laura Doktorova, https://github.com/olado/doT
 // Licensed under the MIT license.
 
+/*global define, module */
+/*jshint -W014, -W054, -W089 */
+
 (function(global) {
 	"use strict";
 
@@ -12,12 +15,11 @@
 	var sDefine = "\\>";
 	var sUse = "\\<";
 	var sParam = "\\:";
-	var sBlock = "\\#"
+	var sBlock = "\\#";
 	var sStatement = "\\;";	
-	var sComment = "\\*"
-	var pAny = "[\\s\\S]"
+	var sComment = "\\*";
+	var pAny = "[\\s\\S]";
 	var pIdent = "[\\w\\$]";
-	var pIdentPath = "[\\w\\$\\.]";
 	var lStringChars = "\\'\\\"";
 	var pParamContent = "[^" + lStringChars + sParam 
 		+ "\\{\\}" // wohak for object notation, e.g. {a: b}
@@ -81,12 +83,12 @@
 	doT.condition = function(c) { return !!c; };
 	doT.blockWriter = function(name, jas, tas) { 
 		return "[" + name
-			+ Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]" }).join("")
-			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](jas) + "]" }).join("") + "]"; 
+			+ Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]"; }).join("")
+			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](jas) + "]"; }).join("") + "]"; 
 	};
 	doT.blockSplatter = function (name, jas, tas, _b) {
 		var nl = name.length;
-		if (!nl || name[nl - 1] != '@')
+		if (!nl || name[nl - 1] !== '@')
 			return _b(name, jas, tas);
 		var out = '';
 		var jl = jas ? jas.length : 0;
@@ -95,7 +97,7 @@
 			out += _b(name, jas[i], tas);
 		return out;
 	};
-	doT.block = function(name, jas, tas) { return doT.blockSplatter(name, jas, tas, doT.blockWriter); }
+	doT.block = function(name, jas, tas) { return doT.blockSplatter(name, jas, tas, doT.blockWriter); };
 
 	var skip = /$^/;
 
@@ -132,14 +134,12 @@
 			}
 		}
 		return resolved;
-	};
+	}
 
 	doT.template = function(tmpl, c, def) {
 		c = resolveSettings(c);
-		tmpl = tmpl.replace(c.comment, function(m) { 
-			return "";
-		});
-		var sid = 0, indv,
+		tmpl = tmpl.replace(c.comment, "");
+		var sid = 0,
 			str  = (c.use || c.define) ? resolveDefs(c, tmpl, def || {}) : tmpl;
 		var vars = {};
 		if (c.strip) {
@@ -166,14 +166,14 @@
 					return startBlock + endBlock;
 				}
 			} else {
-				var endParam = innerEnd + ";return out;}"
+				var endParam = innerEnd + ";return out;}";
 				if (paramBlock) {
 					return endParam + "," + startParam;
 				} else {
 					return endParam + "}" + endBlock;
 				}
 			}
-		};
+		}
 		
 		var needsLoop = false;
 		str = ("out='" + str
@@ -214,9 +214,7 @@
 			str = str
 				.replace(new RegExp(c.innerBeginMatch + "'\\n", "g"), "'")
 				.replace(new RegExp("\\n*'" + c.innerEndMatch, "g"), "'")
-				.replace(c.comment, function(m) { 
-					return "";
-				});
+				.replace(c.comment, "");
 		}
 		str = str
 			.replace(c.statement, function(m, code) {
@@ -252,7 +250,7 @@
 	doT.globals = function(c) {
 		c = resolveSettings(c);
 		return [c.varname, "_i", "_c", "_b", "_bm"];
-	},
+	};
 	doT.wrap = function(source, c) {
 		c = resolveSettings(c);
 		try {
