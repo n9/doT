@@ -15,7 +15,7 @@
 	function returns(v) { return function() { return v; }; }
 
 	function doTcall(template, context, block, blockMeta) {
-		return template(context, doT.interpolate, doT.condition, block || doT.block, blockMeta || no);
+		return template(context, doT.interpolate, doT.condition, doT.loop, block || doT.block, blockMeta || no);
 	}
 	
 	function testEval(name, cases) {

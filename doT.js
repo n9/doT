@@ -57,7 +57,6 @@
 			innerBeginMatch: pBegin + sComment + "<" + sComment + pEnd,
 			innerEndMatch: pBegin + sComment + ">" + sComment + pEnd,
 			varname: 'it',
-			loopFunction: "_l=function(a,f,sf){var o='';if(_c(a)){var l=a.length-1,i=-1,s='';while(i<l){if(sf&&i===0)s=sf();o+=s+f(a[++i],i);}}return o;}",
 			strip: true
 		},
 		template: undefined, //fn, compile template
@@ -81,10 +80,25 @@
 	
 	doT.interpolate = doT.encodeHTML;
 	doT.condition = function(c) { return !!c; };
+	doT.loop = function(a, f, sf) { 
+		var o = ''; 
+		if (a) {
+			var l = a.length - 1, i = -1, s = ''; 
+			while (i < l) {
+				if (sf && i === 0)
+					s = sf();
+				o += s + f(a[++i], i);
+			}
+		}
+		return o;
+	};
+	
+	var no = function() { return false; };
+	
 	doT.blockWriter = function(name, jas, tas) { 
 		return "[" + name
 			+ Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]"; }).join("")
-			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](jas) + "]"; }).join("") + "]"; 
+			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](jas, doT.block, no) + "]"; }).join("") + "]"; 
 	};
 	doT.blockSplatter = function (name, jas, tas, _b) {
 		var nl = name.length;
@@ -153,7 +167,7 @@
 		var innerEnd = "'" + c.innerEndText;
 		
 		function processBlock(name, args, paramBlock, paramName) {
-			var startParam = "'" + (paramName || "content") + "':function(_a){var out=" + innerBegin;
+			var startParam = "'" + (paramName || "content") + "':function(_a, _b, _bm){var out=" + innerBegin;
 			var endBlock = "))+'";
 			if (name || args) {
 				var startBlock = name 
@@ -175,7 +189,6 @@
 			}
 		}
 		
-		var needsLoop = false;
 		str = ("out='" + str
 			.replace(/'|\\/g, '\\$&')
 			.replace(c.conditionalEnd, function(m, elsecase) {
@@ -200,7 +213,6 @@
 				iname = iname || "_i" + sid;
 				vars[iname] = true;
 				vars[vname] = true; 
-				needsLoop = true;
 				return "'+_l(" + unescape(iterate) + ",function(" + vname + "," + iname + "){var out=" + innerBegin;
 			})
 			.replace(c.blockEnd, function(m, paramBlock, paramName) {
@@ -237,9 +249,6 @@
 		for (var k in vars) {
 			str = k + "," + str;
 		}
-		if (needsLoop) {
-			str = c.loopFunction + ',' + str;
-		}
 		return "var " + str;
 	};
 
@@ -249,12 +258,12 @@
 	};
 	doT.globals = function(c) {
 		c = resolveSettings(c);
-		return [c.varname, "_i", "_c", "_b", "_bm"];
+		return [c.varname, "_i", "_c", "_l", "_b", "_bm"];
 	};
 	doT.wrap = function(source, c) {
 		c = resolveSettings(c);
 		try {
-			return new Function(c.varname, "_i", "_c", "_b", "_bm", source);
+			return new Function(c.varname, "_i", "_c", "_l", "_b", "_bm", source);
 		} catch (e) {
 			if (typeof console !== 'undefined') console.log("Could not create a template function: " + source);
 			throw e;
