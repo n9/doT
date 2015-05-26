@@ -20,6 +20,7 @@
 	var sComment = "\\*";
 	var pAny = "[\\s\\S]";
 	var pIdent = "[\\w\\$]";
+	var pIdentWithSlash = "[\\w\\$\\/]";
 	var lStringChars = "\\'\\\"";
 	var pParamContent = "[^" + lStringChars + sParam 
 		+ "\\{\\}" // wohak for object notation, e.g. {a: b}
@@ -39,7 +40,7 @@
 			define: re(sDefine + "\\s*(" + pIdent + "+)\\s*" + sParam + "(" + pAny + "*?)" + sUse),
 			defineParam: re(sDefine),
 			conditionalEnd: re(sConditional + "(" + sConditional + ")?"),
-			conditionalBegin: re(sConditional + "(" + sConditional + ")?" + "(?:(" + sBlock + ")(" + pIdent + "+))?"
+			conditionalBegin: re(sConditional + "(" + sConditional + ")?" + "(?:(" + sBlock + ")(" + pIdentWithSlash + "+))?"
 				+ "\\s*(" + pAny + "*?)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
 			iterateEnd: re(sIterate + "(" + sIterate + ")?"),
@@ -48,7 +49,7 @@
 				+ "\\s*" + sParam + "\\s*(" + pIdent + "+)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
 			blockEnd: re(sBlock + "(\\.(" + pIdent + "*))?"),
-			block: re(sBlock + "(?:(" + pIdent + "+@?)?(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
+			block: re(sBlock + "(?:(" + pIdentWithSlash + "+@?)?(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
 			variable: re(sParam + "(" + pAny + "+?)"),
 			statement: re(sStatement + "(" + pAny + "+?)"),
 			comment: re(sComment + pAny + "*?" + sComment),

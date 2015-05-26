@@ -69,7 +69,9 @@
 	
 	testEval("Block", [
 		{ t: "{{#myBlock}}", e: "[myBlock]" },
+		{ t: "{{#p/myBlock}}", e: "[p/myBlock]" },
 		{ t: "{{?#myBlock}}yes{{??}}no{{?}}", e: "no" },
+		{ t: "{{?#p/myBlock}}yes{{??}}no{{?}}", e: "no" },
 		{ t: "{{?#myBlock}}yes{{??}}no{{?}}", bm: equals("myBlock"), e: "yes" },
 		{ t: "{{?#myBlock}}yes{{??}}no{{?}}", bm: equals("myBlock", 1), e: "no" },
 		{ t: "{{?#myBlock :b}} {{b.name}} {{??}}no{{?}}", bm: returns({name: "foo"}), e: " foo " },
