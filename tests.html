@@ -15,7 +15,13 @@
 	function returns(v) { return function() { return v; }; }
 
 	function doTcall(template, context, block, blockMeta) {
-		return template(context, doT.interpolate, doT.condition, doT.loop, block || doT.block, blockMeta || no);
+		return template(context, {
+			i: doT.interpolate, 
+			c: doT.condition, 
+			l: doT.loop, 
+			b: block || doT.block, 
+			bm: blockMeta || no
+		});
 	}
 	
 	function testEval(name, cases) {
@@ -87,8 +93,8 @@
 		{ it: peopleData, t: "{{#myBlock (it.people[0].addresses[0]).}} city: {{_a.city}} {{#}}", e: "[myBlock street=[Street A] city=[A] content=[ city: A ]]" },
 		{ it: peopleData, t: "{{#myBlock@ (it.people[0].addresses).}} city: {{_a.city}} {{#}}", e: "[myBlock street=[Street A] city=[A] content=[ city: A ]][myBlock city=[B] content=[ city: B ]]" },
 		{ it: peopleData, t: "{{#person@ (it.people).}}name: {{_a.name}} {{#address@ (_a.addresses).}}city: {{_a.city}}{{#}}{{#}}", e: "[person name=[Joe] addresses=[[object Object],[object Object]] content=[name: Joe [address street=[Street A] city=[A] content=[city: A]][address city=[B] content=[city: B]]]][person name=[Steve] content=[name: Steve ]]" },
-		{ it: function(p) { return p.name() + " " + p.detail() + " " + p.content(); }, t: "{{#(it).name}}Car{{#.detail}}a vehicle{{#.}}foobar{{#}}", e: "Car a vehicle foobar" },
-		{ it: function(p) { return p.name("blue"); }, t: "{{#(it).name}}Car {{_a}}{{#}}", e: "Car blue" },
+		{ it: function(_$, p) { return p.name(null, _$) + " " + p.detail(null, _$) + " " + p.content(null, _$); }, t: "{{#(it).name}}Car{{#.detail}}a vehicle{{#.}}foobar{{#}}", e: "Car a vehicle foobar" },
+		{ it: function(_$, p) { return p.name("blue", _$); }, t: "{{#(it).name}}Car {{_a}}{{#}}", e: "Car blue" },
 	]);
 	
 	testEval("Whitespaces", [

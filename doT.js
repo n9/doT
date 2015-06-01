@@ -57,7 +57,9 @@
 			innerEndText: "{{*>*}}",
 			innerBeginMatch: pBegin + sComment + "<" + sComment + pEnd,
 			innerEndMatch: pBegin + sComment + ">" + sComment + pEnd,
-			varname: 'it',
+			dataVar: 'it',
+			opVar: '_$',
+			argVar: '_a',
 			strip: true
 		},
 		template: undefined, //fn, compile template
@@ -96,23 +98,23 @@
 	
 	var no = function() { return false; };
 	
-	doT.blockWriter = function(name, jas, tas) { 
+	doT.blockWriter = function(name, _$, jas, tas) { 
 		return "[" + name
 			+ Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]"; }).join("")
-			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](jas, doT.block, no) + "]"; }).join("") + "]"; 
+			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](jas, _$) + "]"; }).join("") + "]"; 
 	};
-	doT.blockSplatter = function (name, jas, tas, _b) {
+	doT.blockSplatter = function (name, _$, jas, tas, _b) {
 		var nl = name.length;
 		if (!nl || name[nl - 1] !== '@')
-			return _b(name, jas, tas);
+			return _b(name, _$, jas, tas);
 		var out = '';
 		var jl = jas ? jas.length : 0;
 		name = name.substr(0, nl - 1); 
 		for (var i = 0; i < jl; i++)
-			out += _b(name, jas[i], tas);
+			out += _b(name, _$, jas[i], tas);
 		return out;
 	};
-	doT.block = function(name, jas, tas) { return doT.blockSplatter(name, jas, tas, doT.blockWriter); };
+	doT.block = function(name, _$, jas, tas) { return doT.blockSplatter(name, _$, jas, tas, doT.blockWriter); };
 
 	var skip = /$^/;
 
@@ -168,13 +170,13 @@
 		var innerEnd = "'" + c.innerEndText;
 		
 		function processBlock(name, args, paramBlock, paramName) {
-			var startParam = "'" + (paramName || "content") + "':function(_a, _b, _bm){var out=" + innerBegin;
+			var startParam = "'" + (paramName || "content") + "':function(" + c.argVar + "," + c.opVar + "){var out=" + innerBegin;
 			var endBlock = "))+'";
 			if (name || args) {
 				var startBlock = name 
-					? "'+(_b('" + name + "'" + "," + 
+					? "'+(" + c.opVar + ".b('" + name + "'" + "," + c.opVar + "," + 
 						(args ? unescape(args) : "null")
-					: "'+_i(" + unescape(args) + "(";
+					: "'+" + c.opVar + ".i(" + unescape(args) + "(" + c.opVar + ",";
 				if (paramBlock) {
 					return startBlock + (name ? "," : "") + "{" + startParam;
 				} else {
@@ -198,13 +200,13 @@
 			.replace(c.conditionalBegin, function(m, elsecase, block, blockName, code, vname) {
 				code = unescape(code);
 				if (block) {
-					code = "_bm('" + blockName + "'," + (code || "null") + ")";
+					code = c.opVar + ".bm('" + blockName + "'," + (code || "null") + ")";
 				}
 				if (vname) {
 					vars[vname] = true;
 					code = vname + "=" + code;
 				}
-				return elsecase ? innerEnd + ";}else if(_c(" + code + ")){out+=" + innerBegin : "';if(_c(" + code + ")){out+=" + innerBegin;
+				return elsecase ? innerEnd + ";}else if(" + c.opVar + ".c(" + code + ")){out+=" + innerBegin : "';if(" + c.opVar + ".c(" + code + ")){out+=" + innerBegin;
 			})
 			.replace(c.iterateEnd, function(m, withSeparator) {
 				return innerEnd + ";return out;}" + (withSeparator ? ",function(){var out=" + innerBegin : ")+'");
@@ -214,7 +216,7 @@
 				iname = iname || "_i" + sid;
 				vars[iname] = true;
 				vars[vname] = true; 
-				return "'+_l(" + unescape(iterate) + ",function(" + vname + "," + iname + "){var out=" + innerBegin;
+				return "'+" + c.opVar + ".l(" + unescape(iterate) + ",function(" + vname + "," + iname + "){var out=" + innerBegin;
 			})
 			.replace(c.blockEnd, function(m, paramBlock, paramName) {
 				return processBlock(null, null, paramBlock, paramName);
@@ -237,7 +239,7 @@
 				return "';var " + unescape(code) + ";out+='";
 			})	
 			.replace(c.interpolate, function(m, code, param) {
-				return "'+_i(" + unescape(code) + (param !== undefined
+				return "'+" + c.opVar + ".i(" + unescape(code) + (param !== undefined
 					? ",'" + unescape(param) + "'"
 					: "") + ")+'";
 			})
@@ -259,12 +261,12 @@
 	};
 	doT.globals = function(c) {
 		c = resolveSettings(c);
-		return [c.varname, "_i", "_c", "_l", "_b", "_bm"];
+		return [c.dataVar, c.opVar];
 	};
 	doT.wrap = function(source, c) {
 		c = resolveSettings(c);
 		try {
-			return new Function(c.varname, "_i", "_c", "_l", "_b", "_bm", source);
+			return new Function(c.dataVar, c.opVar, source);
 		} catch (e) {
 			if (typeof console !== 'undefined') console.log("Could not create a template function: " + source);
 			throw e;
