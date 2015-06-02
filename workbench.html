@@ -26,6 +26,7 @@ pre { white-space: pre-wrap; }
 <script>
 	(function() {
 		function E(id) { return document.getElementById(id); }
+		function no() { return false; }
 
 		var eSource = E('source');
 		var eData = E('data');
@@ -70,7 +71,13 @@ pre { white-space: pre-wrap; }
 			}
 			
 			try { 
-				var output = doT.wrap(compiled)(JSON.parse(eData.value), doT.interpolate, doT.condition, doT.loop, doT.block);
+				var output = doT.wrap(compiled)(JSON.parse(eData.value), {
+					i: doT.interpolate, 
+					c: doT.condition, 
+					l: doT.loop, 
+					b: doT.block, 
+					bm: no
+				});
 				eOutput.textContent = output;
 			} catch (e) {
 				eOutput.textContent = e;
