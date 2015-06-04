@@ -10,7 +10,7 @@ pre { white-space: pre-wrap; }
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/styles/vs.min.css">
 </head><body>
 <div>Source:</div>
-<textarea id="source"></textarea>
+<pre id="source"></pre>
 <div>Compiled template (<input type="checkbox" id="beautify"> beautify):</div>
 <pre id="compiled">not yet compiled</pre>
 <div>Context data (JSON):</div>
@@ -22,13 +22,20 @@ pre { white-space: pre-wrap; }
 <script src="https://cdn.rawgit.com/jshint/jshint/2.7.0/dist/jshint.js"></script>
 <script src="https://cdn.rawgit.com/beautify-web/js-beautify/v1.5.5/js/lib/beautify.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/highlight.min.js"></script>
-<style>li.L0, li.L1, li.L2, li.L3,li.L5, li.L6, li.L7, li.L8{ list-style-type: decimal !important }</style>
+<script src="https://cdn.rawgit.com/n9/ace/5d4676dbaa61bf04a3ad183768f06059bf187170/demo/kitchen-sink/require.js"></script>
+<style>li.L0, li.L1, li.L2, li.L3,li.L5, li.L6, li.L7, li.L8{ list-style-type: decimal !important } .ace_n9dotToken { background: rgba(0, 0, 0, 0.05); } .ace_n9dotExpression {	background: rgba(0, 128, 0, 0.05); }</style>
 <script>
-	(function() {
+	require.config({paths: { "ace" : "https://cdn.rawgit.com/n9/ace/5d4676dbaa61bf04a3ad183768f06059bf187170/lib/ace"}});
+	require(["ace/ace"], function(ace) {
 		function E(id) { return document.getElementById(id); }
 		function no() { return false; }
 
-		var eSource = E('source');
+		var aceSource = ace.edit('source');
+		aceSource.setOptions({
+			minLines: 10,
+			maxLines: 20
+		});
+		aceSource.session.setMode("ace/mode/n9dot");
 		var eData = E('data');
 		var eCompiled = E('compiled');
 		var eOutput = E('output');
@@ -40,7 +47,7 @@ pre { white-space: pre-wrap; }
 		});
 
 		function doTcompile() { 
-			var source = eSource.value;
+			var source = aceSource.session.getValue();
 			var data = eData.value;
 			var beautify = eBeautify.checked;
 			try {
@@ -87,9 +94,8 @@ pre { white-space: pre-wrap; }
 		var s = localStorage.getItem('source');
 		if (s === null || s === '')
 			s = 'Hello {{it}}!';
-		eSource.value = s;
-		eSource.onchange = doTcompile;
-		eSource.onkeyup = doTcompile;
+		aceSource.session.setValue(s);
+		aceSource.on('input', doTcompile);
 		var b = localStorage.getItem('nobeautify');
 		eBeautify.checked = !b;
 		eBeautify.onclick = doTcompile;
@@ -101,6 +107,6 @@ pre { white-space: pre-wrap; }
 		eData.onchange = doTcompile;
 		eData.onkeyup = doTcompile;
 		doTcompile();
-	})();
+	});
 </script>
 </body></html>
