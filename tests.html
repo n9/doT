@@ -95,6 +95,9 @@
 		{ it: peopleData, t: "{{#person@ (it.people).}}name: {{_a.name}} {{#address@ (_a.addresses).}}city: {{_a.city}}{{#}}{{#}}", e: "[person name=[Joe] addresses=[[object Object],[object Object]] content=[name: Joe [address street=[Street A] city=[A] content=[city: A]][address city=[B] content=[city: B]]]][person name=[Steve] content=[name: Steve ]]" },
 		{ it: function(_$, p) { return p.name(null, _$) + " " + p.detail(null, _$) + " " + p.content(null, _$); }, t: "{{#(it).name}}Car{{#.detail}}a vehicle{{#.}}foobar{{#}}", e: "Car a vehicle foobar" },
 		{ it: function(_$, p) { return p.name("blue", _$); }, t: "{{#(it).name}}Car {{_a}}{{#}}", e: "Car blue" },
+		{ it: function(_$, p) { return p.name("blue", _$); }, t: "{{:c#(it).name}}Car {{_a}}{{#}}- {{c}} + {{c}}!", e: "- Car blue + Car blue!" },
+		{ t: "{{:b#myBlock}}- {{b}} + {{b}}!", e: "- [myBlock] + [myBlock]!" },
+		{ t: "{{:b#myBlock.}} foo {{#}}- {{b}} + {{b}}!", e: "- [myBlock content=[ foo ]] + [myBlock content=[ foo ]]!" },
 	]);
 	
 	testEval("Whitespaces", [

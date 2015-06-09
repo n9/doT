@@ -48,8 +48,8 @@
 				+ "\\s*(" + pAny + "+?)"
 				+ "\\s*" + sParam + "\\s*(" + pIdent + "+)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
-			blockEnd: re(sBlock + "(\\.(" + pIdent + "*))?"),
-			block: re(sBlock + "(?:(" + pIdentWithSlash + "+@?)?(" + pAny + "*?))?(\\.(" + pIdent + "*))?"),
+			blockEnd: re(sBlock + "(\\.(" + pIdentWithSlash + "*))?"),
+			block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:(" + pIdentWithSlash + "+@?)?(" + pAny + "*?))?(\\.(" + pIdentWithSlash + "*))?"),
 			variable: re(sParam + "(" + pAny + "+?)"),
 			statement: re(sStatement + "(" + pAny + "+?)"),
 			comment: re(sComment + pAny + "*?" + sComment),
@@ -169,14 +169,22 @@
 		var innerBegin = c.innerBeginText + "'";
 		var innerEnd = "'" + c.innerEndText;
 		
-		function processBlock(name, args, paramBlock, paramName) {
+		function processBlock(declareVar, name, args, paramBlock, paramName) {
 			var startParam = "'" + (paramName || "content") + "':function(" + c.argVar + "," + c.opVar + "){var out=" + innerBegin;
-			var endBlock = "))+'";
+			var endBlock = "));out+='";
 			if (name || args) {
-				var startBlock = name 
-					? "'+(" + c.opVar + ".b('" + name + "'" + "," + c.opVar + "," + 
+				var startBlock = "'";
+				if (declareVar) {
+					startBlock += ";var " + unescape(declareVar) + "=(";
+				} else {
+					startBlock += name
+						? "+("
+						: "+" + c.opVar + ".i(";
+				}
+				startBlock += name 
+					? c.opVar + ".b('" + name + "'" + "," + c.opVar + "," + 
 						(args ? unescape(args) : "null")
-					: "'+" + c.opVar + ".i(" + unescape(args) + "(" + c.opVar + ",";
+					: unescape(args) + "(" + c.opVar + ",";
 				if (paramBlock) {
 					return startBlock + (name ? "," : "") + "{" + startParam;
 				} else {
@@ -219,10 +227,10 @@
 				return "'+" + c.opVar + ".l(" + unescape(iterate) + ",function(" + vname + "," + iname + "){var out=" + innerBegin;
 			})
 			.replace(c.blockEnd, function(m, paramBlock, paramName) {
-				return processBlock(null, null, paramBlock, paramName);
+				return processBlock(null, null, null, paramBlock, paramName);
 			})			
-			.replace(c.block, function(m, name, args, paramBlock, paramName) {
-				return processBlock(name, args, paramBlock, paramName);
+			.replace(c.block, function(m, declareVar, name, args, paramBlock, paramName) {
+				return processBlock(declareVar, name, args, paramBlock, paramName);
 			})
 			+ "';return out;");
 		if (c.strip) {
