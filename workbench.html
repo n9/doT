@@ -7,7 +7,6 @@ textarea { display: block; width: 100%; height: 100px; }
 button { display: block; }
 pre { white-space: pre-wrap; }
 </style>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/styles/vs.min.css">
 </head><body>
 <div>Source:</div>
 <pre id="source"></pre>
@@ -19,13 +18,12 @@ pre { white-space: pre-wrap; }
 <pre id="output">not yet evaluated</pre>
 <pre id="diag">not yet evaluated</pre>
 <script src="doT.js"></script>
-<script src="https://cdn.rawgit.com/jshint/jshint/2.7.0/dist/jshint.js"></script>
+<script src="https://rawgit.com/jshint/jshint/2.8.0/dist/jshint.js"></script>
 <script src="https://cdn.rawgit.com/beautify-web/js-beautify/v1.5.5/js/lib/beautify.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/highlight.min.js"></script>
 <script src="https://cdn.rawgit.com/jrburke/requirejs/2.1.18/require.js"></script>
-<style>li.L0, li.L1, li.L2, li.L3,li.L5, li.L6, li.L7, li.L8{ list-style-type: decimal !important } .ace_n9dotToken { background: rgba(0, 0, 0, 0.05); } .ace_n9dotExpression {	background: rgba(0, 128, 0, 0.05); }</style>
+<style>.ace_n9dotToken { background: rgba(0, 0, 0, 0.05); } .ace_n9dotExpression {	background: rgba(0, 128, 0, 0.05); }</style>
 <script>
-	require.config({paths: { "ace" : "https://cdn.rawgit.com/n9/ace/d63a199/lib/ace"}});
+	require.config({paths: { "ace" : "https://cdn.rawgit.com/n9/ace/4333eda/lib/ace"}});
 	require(["ace/ace"], function(ace) {
 		function E(id) { return document.getElementById(id); }
 		function no() { return false; }
@@ -36,8 +34,17 @@ pre { white-space: pre-wrap; }
 			maxLines: 20
 		});
 		aceSource.session.setMode("ace/mode/n9dot");
+		
+		var aceCompiled = ace.edit('compiled');
+		aceCompiled.setOptions({
+			minLines: 0,
+			maxLines: 20,
+			useWorker: false,
+			readOnly: true
+		});
+		aceCompiled.session.setMode("ace/mode/javascript");		
+		
 		var eData = E('data');
-		var eCompiled = E('compiled');
 		var eOutput = E('output');
 		var eDiag = E('diag');
 		var eBeautify = E('beautify');
@@ -63,16 +70,18 @@ pre { white-space: pre-wrap; }
 				compiled = doT.template(source);
 				if (beautify)
 					compiled = js_beautify(compiled);
-				eCompiled.innerHTML = hljs.highlight("javascript", compiled).value;
+				
+				aceCompiled.session.doc.setValue(compiled);
 			} catch (e) {
-				eCompiled.textContent = e;
+				aceCompiled.session.setValue(e);
 				return;
 			}
 					
 			try {
 				var r = JSHINT(compiled, null, dotGlobals);
-				eDiag.textContent = "errors: " + JSHINT.errors.map(function(e) { return "[" + e.line + "," + e.character + "] " + e.reason; }).join("\r\n")
+				eDiag.textContent = "errors: " + JSHINT.errors.map(function(e) { return "[" + e.line + "," + e.character + "] " + e.code + ": " + e.reason; }).join("\r\n")
 					+ "\r\nundefs: " + JSHINT.undefs.map(function(u) { return "[" + u[2].line + "," + u[2].character + "] " + u[2].value; }).join("\r\n");
+				aceCompiled.session.setAnnotations(JSHINT.errors.map(function(e) { return { row: e.line - 1, column: e.character - 1, text: e.reason, type: e.code[0] === 'W' ? "warning" : "error" };}).concat(JSHINT.undefs.map(function(u) { return { row: u[2].line - 1, column: u[2].character - 1, text: u[2].value + " is not defined", type: "info" };})));
 			} catch (e) {
 				eDiag.textContent = e;
 			}
