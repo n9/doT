@@ -46,8 +46,9 @@
 			iterateEnd: re(sIterate + "(" + sIterate + ")?"),
 			iterateBegin: re(sIterate
 				+ "\\s*(" + pAny + "+?)"
-				+ "\\s*" + sParam + "\\s*(" + pIdent + "+)"
-				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
+				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*)"
+				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*)"
+				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*))?)?)?"),
 			blockEnd: re(sBlock + "(\\.(" + pIdentWithSlash + "*))?"),
 			block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:(" + pIdentWithSlash + "+@?)?(" + pAny + "*?))?(\\.(" + pIdentWithSlash + "*))?"),
 			variable: re(sParam + "(" + pAny + "+?)"),
@@ -89,8 +90,8 @@
 			var l = a.length - 1, i = -1, s = ''; 
 			while (i < l) {
 				if (sf && i === 0)
-					s = sf();
-				o += s + f(a[++i], i);
+					s = sf(this);
+				o += s + f(this, a[++i], i, a);
 			}
 		}
 		return o;
@@ -98,23 +99,25 @@
 	
 	var no = function() { return false; };
 	
-	doT.blockWriter = function(name, _$, jas, tas) { 
+	doT.blockWriter = function(name, jas, tas) { 
+		var _$ = this;
 		return "[" + name
 			+ Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]"; }).join("")
-			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](jas, _$) + "]"; }).join("") + "]"; 
+			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](_$, jas) + "]"; }).join("") + "]"; 
 	};
-	doT.blockSplatter = function (name, _$, jas, tas, _b) {
+	doT.blockSplatter = function (name, jas, tas, _b) {
+		var _$ = this;
 		var nl = name.length;
 		if (!nl || name[nl - 1] !== '@')
-			return _b(name, _$, jas, tas);
+			return _b.call(_$, name, jas, tas);
 		var out = '';
 		var jl = jas ? jas.length : 0;
 		name = name.substr(0, nl - 1); 
 		for (var i = 0; i < jl; i++)
-			out += _b(name, _$, jas[i], tas);
+			out += _b.call(_$, name, jas[i], tas);
 		return out;
 	};
-	doT.block = function(name, _$, jas, tas) { return doT.blockSplatter(name, _$, jas, tas, doT.blockWriter); };
+	doT.block = function(name, jas, tas) { return doT.blockSplatter.call(this, name, jas, tas, doT.blockWriter); };
 
 	var skip = /$^/;
 
@@ -170,7 +173,7 @@
 		var innerEnd = "'" + c.innerEndText;
 		
 		function processBlock(declareVar, name, args, paramBlock, paramName) {
-			var startParam = "'" + (paramName || "content") + "':function(" + c.argVar + "," + c.opVar + "){var out=" + innerBegin;
+			var startParam = "'" + (paramName || "content") + "':function(" + c.opVar + "," + c.argVar + "){var out=" + innerBegin;
 			var endBlock = "));out+='";
 			if (name || args) {
 				var startBlock = "'";
@@ -182,7 +185,7 @@
 						: "+" + c.opVar + ".i(";
 				}
 				startBlock += name 
-					? c.opVar + ".b('" + name + "'" + "," + c.opVar + "," + 
+					? c.opVar + ".b('" + name + "'" + "," + 
 						(args ? unescape(args) : "null")
 					: unescape(args) + "(" + c.opVar + ",";
 				if (paramBlock) {
@@ -217,14 +220,19 @@
 				return elsecase ? innerEnd + ";}else if(" + c.opVar + ".c(" + code + ")){out+=" + innerBegin : "';if(" + c.opVar + ".c(" + code + ")){out+=" + innerBegin;
 			})
 			.replace(c.iterateEnd, function(m, withSeparator) {
-				return innerEnd + ";return out;}" + (withSeparator ? ",function(){var out=" + innerBegin : ")+'");
+				return innerEnd + ";return out;}" + (withSeparator ? ",function(" + c.opVar + "){var out=" + innerBegin : ")+'");
 			})
-			.replace(c.iterateBegin, function(m, iterate, vname, iname) {
-				sid += 1; 
-				iname = iname || "_i" + sid;
-				vars[iname] = true;
-				vars[vname] = true; 
-				return "'+" + c.opVar + ".l(" + unescape(iterate) + ",function(" + vname + "," + iname + "){var out=" + innerBegin;
+			.replace(c.iterateBegin, function(m, iterate, vname, iname, cname) {
+				var args = [c.opVar];
+				if (vname) {
+					args.push(vname);
+					if (iname) {
+						args.push(iname);
+						if (cname)
+							args.push(cname);
+					}
+				}
+				return "'+" + c.opVar + ".l(" + unescape(iterate) + ",function(" + args.join(",") + "){var out=" + innerBegin;
 			})
 			.replace(c.blockEnd, function(m, paramBlock, paramName) {
 				return processBlock(null, null, null, paramBlock, paramName);
