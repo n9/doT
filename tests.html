@@ -90,6 +90,7 @@
 	]);
 	
 	testEval("BlockFunc", [
+		{ it: function(_$, p) { return "1"; }, t: "{{#(it)}}", e: "1" },
 		{ it: function(_$, p) { return p.name(_$) + " " + p.detail(_$) + " " + p.content(_$, null); }, t: "{{#(it).name}}Car{{#.detail}}a vehicle{{#.}}foobar{{#}}", e: "Car a vehicle foobar" },
 		{ it: function(_$, p) { return p.name(_$, "blue"); }, t: "{{#(it).name}}Car {{_a}}{{#}}", e: "Car blue" },
 		{ it: function(_$, p) { return p.name(_$, "blue"); }, t: "{{:c#(it).name}}Car {{_a}}{{#}}- {{c}} + {{c}}!", e: "- Car blue + Car blue!" },

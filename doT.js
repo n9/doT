@@ -187,9 +187,9 @@
 				startBlock += name 
 					? c.opVar + ".b('" + name + "'" + "," + 
 						(args ? unescape(args) : "null")
-					: unescape(args) + "(" + c.opVar + ",";
+					: unescape(args) + "(" + c.opVar;
 				if (paramBlock) {
-					return startBlock + (name ? "," : "") + "{" + startParam;
+					return startBlock + ",{" + startParam;
 				} else {
 					return startBlock + endBlock;
 				}
