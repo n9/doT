@@ -26,7 +26,6 @@ pre { white-space: pre-wrap; }
 	require.config({paths: { "ace" : "https://cdn.rawgit.com/n9/ace/4333eda/lib/ace"}});
 	require(["ace/ace"], function(ace) {
 		function E(id) { return document.getElementById(id); }
-		function no() { return false; }
 
 		var aceSource = ace.edit('source');
 		aceSource.setOptions({
@@ -73,7 +72,7 @@ pre { white-space: pre-wrap; }
 				
 				aceCompiled.session.doc.setValue(compiled);
 			} catch (e) {
-				aceCompiled.session.setValue(e);
+				aceCompiled.session.setValue(e.message);
 				return;
 			}
 					
@@ -87,13 +86,7 @@ pre { white-space: pre-wrap; }
 			}
 			
 			try { 
-				var output = doT.wrap(compiled)(JSON.parse(eData.value), {
-					i: doT.interpolate, 
-					c: doT.condition, 
-					l: doT.loop, 
-					b: doT.block, 
-					bm: no
-				});
+				var output = doT.wrap(compiled)(JSON.parse(eData.value), doT.defaultContext);
 				eOutput.textContent = output;
 			} catch (e) {
 				eOutput.textContent = e;

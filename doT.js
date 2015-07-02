@@ -50,7 +50,7 @@
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*)"
 				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*))?)?)?"),
 			blockEnd: re(sBlock + "(\\.(" + pIdentWithSlash + "*))?"),
-			block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:(" + pIdentWithSlash + "+@?)?(" + pAny + "*?))?(\\.(" + pIdentWithSlash + "*))?"),
+			block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:(" + pIdentWithSlash + "+@?)?(" + pAny + "*?))??(\\.(" + pIdentWithSlash + "*))?"),
 			variable: re(sParam + "(" + pAny + "+?)"),
 			statement: re(sStatement + "(" + pAny + "+?)"),
 			comment: re(sComment + pAny + "*?" + sComment),
@@ -61,11 +61,14 @@
 			dataVar: 'it',
 			opVar: '_$',
 			argVar: '_a',
+			blockContent: 'content',
 			strip: true
 		},
 		template: undefined, //fn, compile template
 		compile:  undefined  //fn, for express
 	};
+
+	var inlineBlockArg = '$';
 
 	if (typeof module !== 'undefined' && module.exports) {
 		module.exports = doT;
@@ -98,12 +101,33 @@
 	};
 	
 	var no = function() { return false; };
+	var assign = function(target, source) {
+		for (var k in source) {
+			target[k] = source[k];
+		}
+	};
 	
+	doT.derive = function(blocks) {
+		var _$ = Object.create(this);
+		var newBlocks = Object.create(_$.blocks);
+		if (blocks)
+			assign(newBlocks, blocks);
+		_$.blocks = newBlocks;
+		return _$;
+	};
 	doT.blockWriter = function(name, jas, tas) { 
 		var _$ = this;
 		return "[" + name
 			+ Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]"; }).join("")
 			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](_$, jas) + "]"; }).join("") + "]"; 
+	};
+	doT.blockProcessor = function(name, jas, tas) {
+		var _$ = this;
+		var block = (tas && tas[name]) || _$.blocks[name];
+		if (block) {
+			return block(_$.derive(tas), jas);
+		}
+		return _$.unknownBlock(name, jas, tas);
 	};
 	doT.blockSplatter = function (name, jas, tas, _b) {
 		var _$ = this;
@@ -117,8 +141,35 @@
 			out += _b.call(_$, name, jas[i], tas);
 		return out;
 	};
-	doT.block = function(name, jas, tas) { return doT.blockSplatter.call(this, name, jas, tas, doT.blockWriter); };
-
+	doT.block = function(name, jas, tas) { 
+		return doT.blockSplatter.call(this, name, jas, tas, doT.blockProcessor); 
+	};
+	doT.inlineBlock = function(dc, dt) { 
+		return function(j) { 
+			return function(cc, ct) { 
+				cc = cc.derive(dt);
+				return cc.b(inlineBlockArg, j, ct);
+			}; 
+		}; 
+	};
+	doT.blockMeta = function(name, args) {
+		var _$ = this;
+		return _$.blocks[name] || _$.unknownBlockMeta(name, args);
+	};
+	
+	doT.defaultContext = {
+		i: doT.interpolate, 
+		c: doT.condition, 
+		l: doT.loop, 
+		b: doT.block, 
+		ib: doT.inlineBlock,
+		bm: doT.blockMeta,
+		blocks: {},
+		derive: doT.derive,
+		unknownBlock: doT.blockWriter,
+		unknownBlockMeta: no
+	};
+	
 	var skip = /$^/;
 
 	function resolveDefs(c, block, def) {
@@ -173,9 +224,12 @@
 		var innerEnd = "'" + c.innerEndText;
 		
 		function processBlock(declareVar, name, args, paramBlock, paramName) {
-			var startParam = "'" + (paramName || "content") + "':function(" + c.opVar + "," + c.argVar + "){var out=" + innerBegin;
+			var inlineBlock = declareVar && !name;
+			if (!paramName)
+				paramName = paramBlock ? c.blockContent : inlineBlockArg;
+			var startParam = "'" + paramName + "':function(" + c.opVar + "," + c.argVar + "){var out=" + innerBegin;
 			var endBlock = "));out+='";
-			if (name || args) {
+			if (name || args || declareVar) {
 				var startBlock = "'";
 				if (declareVar) {
 					startBlock += ";var " + unescape(declareVar) + "=(";
@@ -184,11 +238,11 @@
 						? "+("
 						: "+" + c.opVar + ".i(";
 				}
+				args = args ? unescape(args) : inlineBlock ? c.opVar + ".ib" : "null";
 				startBlock += name 
-					? c.opVar + ".b('" + name + "'" + "," + 
-						(args ? unescape(args) : "null")
-					: unescape(args) + "(" + c.opVar;
-				if (paramBlock) {
+					? c.opVar + ".b('" + name + "'" + "," + args
+					: args + "(" + c.opVar;
+				if (paramBlock || inlineBlock) {
 					return startBlock + ",{" + startParam;
 				} else {
 					return startBlock + endBlock;

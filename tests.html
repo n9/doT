@@ -14,14 +14,8 @@
 	function equals() { var args = Array.prototype.slice.call(arguments); return function() { for (var i = 0; i < args.length; i++) if (args[i] !== arguments[i]) return false; return true; }; }
 	function returns(v) { return function() { return v; }; }
 
-	function doTcall(template, context, block, blockMeta) {
-		return template(context, {
-			i: doT.interpolate, 
-			c: doT.condition, 
-			l: doT.loop, 
-			b: block || doT.block, 
-			bm: blockMeta || no
-		});
+	function doTcall(template, context) {
+		return template(context, doT.defaultContext);
 	}
 	
 	function testEval(name, cases) {
@@ -99,12 +93,7 @@
 	testEval("BlockMeta", [
 		{ t: "{{?#myBlock}}yes{{??}}no{{?}}", e: "no" },
 		{ t: "{{?#p/myBlock}}yes{{??}}no{{?}}", e: "no" },
-		{ t: "{{?#myBlock}}yes{{??}}no{{?}}", bm: equals("myBlock"), e: "yes" },
-		{ t: "{{?#myBlock}}yes{{??}}no{{?}}", bm: equals("myBlock", 1), e: "no" },
-		{ t: "{{?#myBlock :b}} {{b.name}} {{??}}no{{?}}", bm: returns({name: "foo"}), e: " foo " },
-		{ t: "{{?#myBlock :b}} {{b.name}} {{??}}no{{?}}", bm: returns(null), e: "no" },
-		{ t: "{{?#myBlock(1)}}yes{{??}}no{{?}}", bm: equals("myBlock", 1), e: "yes" },
-		{ t: "{{?#myBlock(2)}}yes{{??}}no{{?}}", bm: equals("myBlock", 1), e: "no" },
+		{ t: "{{:_#}}{{?#myBlock}}yes{{??}}no{{?}}{{#}}{{#(_(null)).myBlock}}{{#}}", e: "yes" },
 	]);
 	
 	testEval("BlockVars", [
@@ -125,6 +114,27 @@
 		{ t: "A{{?false}} B \n {{?}} C", e: "A C" },
 		{ t: "A{{?true}} \n B \n {{?}}C", e: "ABC" },
 		{ t: "A{{?false}} \n B \n {{?}}C", e: "AC" },
+	]);
+	
+	testEval("InlineBlockWithRecursionAndRedefinition", [
+		{ t: ""
+			+ "\n{{:control#}}"
+			+ "\n    {{#content}} {{#title}} {{?_a}}"
+			+ "\n        {{#$(_a-1).title}}"
+			+ "\n            d"
+			+ "\n        {{#.}}"
+			+ "\n            e"
+			+ "\n        {{#}}"
+			+ "\n    {{?}}"
+			+ "\n{{#.title}}"
+			+ "\n    c"
+			+ "\n{{#.}}"
+			+ "\n    a"
+			+ "\n{{#}}{{#(control(2)).title}}"
+			+ "\n    b"
+			+ "\n{{#}}{{#(control()).title}}"
+			+ "\n    f"
+			+ "\n{{#.$}}g {{#title}}{{#}}", e: "a b e d e d g f" }
 	]);
 	
 </script>
