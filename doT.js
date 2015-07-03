@@ -58,7 +58,7 @@
 			+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*)"
 			+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*)"
 			+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*))?)?)?"),
-		blockEnd: re(sBlock + "(\\.(" + pIdentWithSlash + "*))?"),
+		blockParam: re("(\\.(" + pIdentWithSlash + "*))"),
 		block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:((?:" + pIdentWithSlash + "+|" + doT.recurseBlock + ")@?)?(" + pAny + "*?))??(\\.(" + pIdentWithSlash + "*))?"),
 		variable: re(sParam + "(" + pAny + "+?)"),
 		statement: re(sStatement + "(" + pAny + "+?)"),
@@ -281,7 +281,7 @@
 				}
 				return "'+" + c.opVar + ".l(" + unescape(iterate) + ",function(" + args.join(",") + "){var out=" + innerBegin;
 			})
-			.replace(c.blockEnd, function(m, paramBlock, paramName) {
+			.replace(c.blockParam, function(m, paramBlock, paramName) {
 				return processBlock(null, null, null, paramBlock, paramName);
 			})			
 			.replace(c.block, function(m, declareVar, name, args, paramBlock, paramName) {

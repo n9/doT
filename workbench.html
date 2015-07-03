@@ -7,6 +7,7 @@ textarea { display: block; width: 100%; height: 100px; }
 button { display: block; }
 pre { white-space: pre-wrap; }
 </style>
+<style>.ace_n9dotToken { background: rgba(0, 0, 0, 0.05); } .ace_n9dotExpression {	background: rgba(0, 128, 0, 0.05); }</style>
 </head><body>
 <div>Source:</div>
 <pre id="source">Loading...</pre>
@@ -17,98 +18,95 @@ pre { white-space: pre-wrap; }
 <div>Output:</div>
 <pre id="output">not yet evaluated</pre>
 <pre id="diag">not yet evaluated</pre>
+<script src="https://cdn.rawgit.com/n9/ace-builds/89f573e/src/ace.js"></script>
+<script>
+	var aceSource = ace.edit('source');
+	aceSource.setOptions({
+		minLines: 10,
+		maxLines: 20
+	});
+	aceSource.session.setMode("ace/mode/n9dot");
+	
+	var aceCompiled = ace.edit('compiled');
+	aceCompiled.setOptions({
+		minLines: 0,
+		maxLines: 20,
+		useWorker: false,
+		readOnly: true
+	});
+	aceCompiled.session.setMode("ace/mode/javascript");		
+</script>
 <script src="doT.js"></script>
 <script src="https://cdn.rawgit.com/jshint/jshint/2.8.0/dist/jshint.js"></script>
 <script src="https://cdn.rawgit.com/beautify-web/js-beautify/v1.5.5/js/lib/beautify.js"></script>
-<script src="https://cdn.rawgit.com/jrburke/requirejs/2.1.18/require.js"></script>
-<style>.ace_n9dotToken { background: rgba(0, 0, 0, 0.05); } .ace_n9dotExpression {	background: rgba(0, 128, 0, 0.05); }</style>
 <script>
-	require.config({paths: { "ace" : "https://cdn.rawgit.com/n9/ace/4333eda/lib/ace"}});
-	require(["ace/ace"], function(ace) {
-		function E(id) { return document.getElementById(id); }
+	function E(id) { return document.getElementById(id); }
 
-		var aceSource = ace.edit('source');
-		aceSource.setOptions({
-			minLines: 10,
-			maxLines: 20
-		});
-		aceSource.session.setMode("ace/mode/n9dot");
-		
-		var aceCompiled = ace.edit('compiled');
-		aceCompiled.setOptions({
-			minLines: 0,
-			maxLines: 20,
-			useWorker: false,
-			readOnly: true
-		});
-		aceCompiled.session.setMode("ace/mode/javascript");		
-		
-		var eData = E('data');
-		var eOutput = E('output');
-		var eDiag = E('diag');
-		var eBeautify = E('beautify');
-		var dotGlobals = {};
-		doT.globals().forEach(function(v) {
-			dotGlobals[v] = true;
-		});
-
-		function doTcompile() { 
-			var source = aceSource.session.getValue();
-			var data = eData.value;
-			var beautify = eBeautify.checked;
-			try {
-				localStorage.setItem('source', source)
-				localStorage.setItem('data', data)
-				localStorage.setItem('nobeautify', beautify ? "" : "t")
-			} catch (e) {
-				// ignore
-			}
-			
-			var compiled; 
-			try { 
-				compiled = doT.template(source);
-				if (beautify)
-					compiled = js_beautify(compiled);
-				
-				aceCompiled.session.doc.setValue(compiled);
-			} catch (e) {
-				aceCompiled.session.setValue(e.message);
-				return;
-			}
-					
-			try {
-				var r = JSHINT(compiled, null, dotGlobals);
-				eDiag.textContent = "errors: " + JSHINT.errors.map(function(e) { return "[" + e.line + "," + e.character + "] " + e.code + ": " + e.reason; }).join("\r\n")
-					+ "\r\nundefs: " + JSHINT.undefs.map(function(u) { return "[" + u[2].line + "," + u[2].character + "] " + u[2].value; }).join("\r\n");
-				aceCompiled.session.setAnnotations(JSHINT.errors.map(function(e) { return { row: e.line - 1, column: e.character - 1, text: e.reason, type: e.code[0] === 'W' ? "warning" : "error" };}).concat(JSHINT.undefs.map(function(u) { return { row: u[2].line - 1, column: u[2].character - 1, text: u[2].value + " is not defined", type: "info" };})));
-			} catch (e) {
-				eDiag.textContent = e;
-			}
-			
-			try { 
-				var output = doT.wrap(compiled)(doT.defaultContext, {}, JSON.parse(eData.value));
-				eOutput.textContent = output;
-			} catch (e) {
-				eOutput.textContent = e;
-			}
-		}
-			
-		var s = localStorage.getItem('source');
-		if (s === null || s === '')
-			s = 'Hello {{it}}!';
-		aceSource.session.setValue(s);
-		aceSource.on('input', doTcompile);
-		var b = localStorage.getItem('nobeautify');
-		eBeautify.checked = !b;
-		eBeautify.onclick = doTcompile;
-		eBeautify.onchange = doTcompile;
-		var d = localStorage.getItem('data');
-		if (d === null || d === '')
-			d = '"World"';
-		eData.value = d;
-		eData.onchange = doTcompile;
-		eData.onkeyup = doTcompile;
-		doTcompile();
+	var eData = E('data');
+	var eOutput = E('output');
+	var eDiag = E('diag');
+	var eBeautify = E('beautify');
+	var dotGlobals = {};
+	doT.globals().forEach(function(v) {
+		dotGlobals[v] = true;
 	});
+
+	function doTcompile() { 
+		var source = aceSource.session.getValue();
+		var data = eData.value;
+		var beautify = eBeautify.checked;
+		try {
+			localStorage.setItem('source', source)
+			localStorage.setItem('data', data)
+			localStorage.setItem('nobeautify', beautify ? "" : "t")
+		} catch (e) {
+			// ignore
+		}
+		
+		var compiled; 
+		try { 
+			compiled = doT.template(source);
+			if (beautify)
+				compiled = js_beautify(compiled);
+			
+			aceCompiled.session.doc.setValue(compiled);
+		} catch (e) {
+			aceCompiled.session.setValue(e.message);
+			return;
+		}
+				
+		try {
+			var r = JSHINT(compiled, null, dotGlobals);
+			eDiag.textContent = "errors: " + JSHINT.errors.map(function(e) { return "[" + e.line + "," + e.character + "] " + e.code + ": " + e.reason; }).join("\r\n")
+				+ "\r\nundefs: " + JSHINT.undefs.map(function(u) { return "[" + u[2].line + "," + u[2].character + "] " + u[2].value; }).join("\r\n");
+			aceCompiled.session.setAnnotations(JSHINT.errors.map(function(e) { return { row: e.line - 1, column: e.character - 1, text: e.reason, type: e.code[0] === 'W' ? "warning" : "error" };}).concat(JSHINT.undefs.map(function(u) { return { row: u[2].line - 1, column: u[2].character - 1, text: u[2].value + " is not defined", type: "info" };})));
+		} catch (e) {
+			eDiag.textContent = e;
+		}
+		
+		try { 
+			var output = doT.wrap(compiled)(doT.defaultContext, {}, JSON.parse(eData.value));
+			eOutput.textContent = output;
+		} catch (e) {
+			eOutput.textContent = e;
+		}
+	}
+		
+	var s = localStorage.getItem('source');
+	if (s === null || s === '')
+		s = 'Hello {{it}}!';
+	aceSource.session.setValue(s);
+	aceSource.on('input', doTcompile);
+	var b = localStorage.getItem('nobeautify');
+	eBeautify.checked = !b;
+	eBeautify.onclick = doTcompile;
+	eBeautify.onchange = doTcompile;
+	var d = localStorage.getItem('data');
+	if (d === null || d === '')
+		d = '"World"';
+	eData.value = d;
+	eData.onchange = doTcompile;
+	eData.onkeyup = doTcompile;
+	doTcompile();
 </script>
 </body></html>
