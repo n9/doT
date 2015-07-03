@@ -69,7 +69,6 @@
 		innerEndMatch: pBegin + sComment + ">" + sComment + pEnd,
 		dataVar: 'it',
 		opVar: '_$',
-		blocksVar: '_$blocks',
 		argVar: '_a',
 		blockContent: 'content',
 		strip: true
@@ -103,56 +102,74 @@
 			target[k] = source[k];
 		}
 	};
-	var mayDeriveBlocks = function(proto, current)	{
-		if (!current)
-			return proto;
-		var r = Object.create(proto);
-		assign(r, current);
-		return r;
+	
+	doT.fullDerive = function() {
+		var C = function DoTDerivedContext(blocks) { 
+			this.blocks = blocks;
+		};
+		C.prototype = this;
+		C.prototype.constructor = C;
+		return new C({});
 	};
 	
-	doT.blockWriter = function(name, blocks, jas, tas) { 
+	doT.mayDerive = function(newBlocks) {
+		if (!newBlocks)
+			return this;
+		var _$ = this;
+		var blocks = Object.create(_$.blocks);
+		assign(blocks, newBlocks);
+		return new _$.constructor(blocks);
+	}; 
+	doT.blockWriter = function(name, jas, tas) { 
 		var _$ = this;
 		return "[" + name
 			+ Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]"; }).join("")
-			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](_$, blocks, jas) + "]"; }).join("") + "]"; 
+			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](_$, jas) + "]"; }).join("") + "]"; 
 	};
-	doT.blockProcessor = function(name, blocks, jas, tas) {
+	doT.blockProcessor = function(name, jas, tas) {
 		var _$ = this;
-		var block = (tas && tas[name]) || blocks[name];
+		var block = (tas && tas[name]) || _$.blocks[name];
 		if (block) {
-			return block(_$, mayDeriveBlocks(blocks, tas), jas);
+			return block(_$.mayDerive(tas), jas);
 		}
-		return _$.unknownBlock(name, blocks, jas, tas);
+		return _$.unknownBlock(name, jas, tas);
 	};
-	doT.blockSplatter = function (name, blocks, jas, tas, _b) {
+	doT.blockSplatter = function (name, jas, tas, _b) {
 		var _$ = this;
 		var nl = name.length;
 		if (!nl || name[nl - 1] !== '@')
-			return _b.call(_$, name, blocks, jas, tas);
+			return _b.call(_$, name, jas, tas);
 		var out = '';
 		var jl = jas ? jas.length : 0;
 		name = name.substr(0, nl - 1); 
 		for (var i = 0; i < jl; i++)
-			out += _b.call(_$, name, blocks, jas[i], tas);
+			out += _b.call(_$, name, jas[i], tas);
 		return out;
 	};
-	doT.block = function(name, blocks, jas, tas) { 
-		return doT.blockSplatter.call(this, name, blocks, jas, tas, doT.blockProcessor); 
+	doT.block = function(name, jas, tas) { 
+		return doT.blockSplatter.call(this, name, jas, tas, doT.blockProcessor); 
 	};
-	doT.inlineBlock = function(dc, dbs, dt) { 
+	doT.inlineBlock = function(dt) { 
 		return function(j) { 
-			return function(cc, cbs, ct) {
-				return cc.b(doT.recurseBlock, mayDeriveBlocks(dbs, dt), j, ct);
-			}; 
-		}; 
+			return function(cc, ct) {
+				var bs = {};
+				assign(bs, dt);
+				assign(bs, ct);
+				// what about dc blocks (with prototype chain)? (closure vs. block behavior)
+				return dt[doT.recurseBlock](cc.mayDerive(bs), j);
+			};
+		};
 	};
-	doT.blockMeta = function(name, _$blocks, args) {
+	doT.blockMeta = function(name, args) {
 		var _$ = this;
-		return _$blocks[name] || _$.unknownBlockMeta(name, _$blocks, args);
+		return _$.blocks[name] || _$.unknownBlockMeta(name, args);
 	};
 	
-	doT.defaultContext = {
+	doT.Context = function DoTContext(blocks) { 
+		this.blocks = blocks || {};
+	};
+	
+	doT.Context.prototype = {
 		i: doT.interpolate, 
 		c: doT.condition, 
 		l: doT.loop, 
@@ -160,9 +177,12 @@
 		ib: doT.inlineBlock,
 		bm: doT.blockMeta,
 		unknownBlock: doT.blockWriter,
-		unknownBlockMeta: no
+		unknownBlockMeta: no,
+		mayDerive: doT.mayDerive,
+		fullDerive: doT.fullDerive,
+		constructor: doT.Context,
 	};
-	
+
 	var skip = /$^/;
 
 	function resolveDefs(c, block, def) {
@@ -217,25 +237,27 @@
 		var innerEnd = "'" + c.innerEndText;
 		
 		function processBlock(declareVar, name, args, paramBlock, paramName) {
-			var inlineBlock = declareVar && !name;
+			var inlineBlock = declareVar && !name && !args;
 			if (!paramName)
 				paramName = paramBlock ? c.blockContent : doT.recurseBlock;
-			var startParam = "'" + paramName + "':function(" + c.opVar + "," + c.blocksVar + "," + c.argVar + "){var out=" + innerBegin;
+			var startParam = "'" + paramName + "':function(" + c.opVar + "," + c.argVar + "){var out=" + innerBegin;
 			var endBlock = "));out+='";
 			if (name || args || declareVar) {
 				var startBlock = "'";
 				if (declareVar) {
 					startBlock += ";var " + unescape(declareVar) + "=(";
+					if (inlineBlock)
+						return startBlock + c.opVar + ".ib({" + startParam;
 				} else {
 					startBlock += name
 						? "+("
 						: "+" + c.opVar + ".i(";
 				}
-				args = args ? unescape(args) : inlineBlock ? c.opVar + ".ib" : "null";
+				args = args ? unescape(args) : "null";
 				startBlock += name 
-					? c.opVar + ".b('" + name + "'," + c.blocksVar + "," + args
-					: args + "(" + c.opVar + "," + c.blocksVar;
-				if (paramBlock || inlineBlock) {
+					? c.opVar + ".b('" + name + "'," + (args ? unescape(args) : "null")
+					: args + "(" + c.opVar;
+				if (paramBlock) {
 					return startBlock + ",{" + startParam;
 				} else {
 					return startBlock + endBlock;
@@ -258,7 +280,7 @@
 			.replace(c.conditionalBegin, function(m, elsecase, block, blockName, code, vname) {
 				code = unescape(code);
 				if (block) {
-					code = c.opVar + ".bm('" + blockName + "'," + c.blocksVar + "," + (code || "null") + ")";
+					code = c.opVar + ".bm('" + blockName + "'," + (code || "null") + ")";
 				}
 				if (vname) {
 					vars[vname] = true;
@@ -324,12 +346,12 @@
 	};
 	doT.globals = function(c) {
 		c = resolveSettings(c);
-		return [c.dataVar, c.opVar, c.blocksVar];
+		return [c.dataVar, c.opVar];
 	};
 	doT.wrap = function(source, c) {
 		c = resolveSettings(c);
 		try {
-			return new Function(c.opVar, c.blocksVar, c.dataVar, source);
+			return new Function(c.opVar, c.dataVar, source);
 		} catch (e) {
 			if (typeof console !== 'undefined') console.log("Could not create a template function: " + source);
 			throw e;

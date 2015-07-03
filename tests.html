@@ -23,9 +23,9 @@
 		a
 	{{#}}{{#(control(2)).title}}
 		b
-	{{#}}
+	{{#}}{{#(control(1))}}
 	</pre>
-	<pre class="output">a b e d e d </pre>
+	<pre class="output">a b e d e d a c e d </pre>
 </div>
 
 <div class="test" title="InlineBlockWithRecursion">
@@ -57,7 +57,7 @@
 	function returns(v) { return function() { return v; }; }
 
 	function doTcall(template, context) {
-		return template(doT.defaultContext, {}, context);
+		return template(new doT.Context(), context);
 	}
 	
 	function test(c) {
@@ -144,10 +144,10 @@
 	]);
 	
 	testEval("BlockFunc", [
-		{ it: function(_$, _$blocks, p) { return "1"; }, t: "{{#(it)}}", e: "1" },
-		{ it: function(_$, _$blocks, p) { return p.name(_$, _$blocks) + " " + p.detail(_$, _$blocks) + " " + p.content(_$, _$blocks); }, t: "{{#(it).name}}Car{{#.detail}}a vehicle{{#.}}foobar{{#}}", e: "Car a vehicle foobar" },
-		{ it: function(_$, _$blocks, p) { return p.name(_$, _$blocks, "blue"); }, t: "{{#(it).name}}Car {{_a}}{{#}}", e: "Car blue" },
-		{ it: function(_$, _$blocks, p) { return p.name(_$, _$blocks, "blue"); }, t: "{{:c#(it).name}}Car {{_a}}{{#}}- {{c}} + {{c}}!", e: "- Car blue + Car blue!" },
+		{ it: function(_$, p) { return "1"; }, t: "{{#(it)}}", e: "1" },
+		{ it: function(_$, p) { return p.name(_$) + " " + p.detail(_$) + " " + p.content(_$); }, t: "{{#(it).name}}Car{{#.detail}}a vehicle{{#.}}foobar{{#}}", e: "Car a vehicle foobar" },
+		{ it: function(_$, p) { return p.name(_$, "blue"); }, t: "{{#(it).name}}Car {{_a}}{{#}}", e: "Car blue" },
+		{ it: function(_$, p) { return p.name(_$, "blue"); }, t: "{{:c#(it).name}}Car {{_a}}{{#}}- {{c}} + {{c}}!", e: "- Car blue + Car blue!" },
 	]);
 	
 	testEval("BlockMeta", [

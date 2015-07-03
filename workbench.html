@@ -85,7 +85,7 @@ pre { white-space: pre-wrap; }
 		}
 		
 		try { 
-			var output = doT.wrap(compiled)(doT.defaultContext, {}, JSON.parse(eData.value));
+			var output = doT.wrap(compiled)(new doT.Context(), JSON.parse(eData.value));
 			eOutput.textContent = output;
 		} catch (e) {
 			eOutput.textContent = e;
