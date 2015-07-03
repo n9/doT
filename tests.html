@@ -4,10 +4,52 @@
 <title>doT tests</title>
 <link rel="stylesheet" href="https://code.jquery.com/qunit/qunit-1.17.1.css">
 </head><body>
- <div id="qunit"></div>
+<div id="qunit"></div>
+
+<div class="test" title="InlineBlockWithRecursion">
+	<h4>InlineBlockWithRecursion</h4>
+	<pre class="code">
+	{{:control#}}
+		{{#content}} {{#title}} {{?_a}}
+			{{#%(_a-1).title}}
+				d
+			{{#.}}
+				e
+			{{#}}
+		{{?}}
+	{{#.title}}
+		c
+	{{#.}}
+		a
+	{{#}}{{#(control(2)).title}}
+		b
+	{{#}}
+	</pre>
+	<pre class="output">a b e d e d </pre>
+</div>
+
+<div class="test" title="InlineBlockWithRecursion">
+	<h4>InlineBlockWithRecursionLoop</h4>
+	<pre class="code">
+	{{:control#}}
+		{{' '}}({{#name(_a.n)}}{{#%@(_a.c)}})
+	{{#}}
+	{{#(control(it)).name}}{{_a}}{{#}}
+	</pre>
+	<pre class="data">
+	{"n": "a", "c": [{"n": "aa"}, {"n": "ab", "c": [{"n": "aba"}]}]}
+	</pre>
+	<pre class="output">
+
+ (a (aa) (ab (aba)))</pre>
+</div>
+
+
 <div id="qunit-fixture"></div>
+
 <script src="https://code.jquery.com/qunit/qunit-1.17.1.js"></script>
 <script src="doT.js"></script>
+
 <script>
 
 	function no() { return false; }
@@ -15,26 +57,44 @@
 	function returns(v) { return function() { return v; }; }
 
 	function doTcall(template, context) {
-		return template(context, doT.defaultContext);
+		return template(doT.defaultContext, {}, context);
+	}
+	
+	function test(c) {
+		QUnit.test(c.t, function(assert) {
+			var ct;
+			try {
+				ct = doT.compile(c.t);
+			} catch (e) {
+				assert.ok(false, "Compilation failed: " + e.message);
+				return;
+			}
+			var r = doTcall(ct, c.it);
+			assert.equal(r, c.e, "it = " + JSON.stringify(c.it) + " > " + c.e);
+		});
 	}
 	
 	function testEval(name, cases) {
-		QUnit.test(name, function(assert) {
-			for (var i = 0; i < cases.length; i++) {
-				var c = cases[i];
-				var ct;
-				try {
-					ct = doT.compile(c.t);
-				} catch (e) {
-					assert.ok(false, "Compilation failed: " + e.message);
-					continue;
-				}
-				var r = doTcall(ct, c.it, c.b, c.bm);
-				assert.equal(r, c.e, ct.toString() + " | " + JSON.stringify(c.it) + " > " + c.t);
-			}
+		QUnit.module(name);
+		for (var i = 0; i < cases.length; i++) {
+			test(cases[i]);
+		}
+	}
+	
+	function testBlocks() {
+		Array.prototype.forEach.call(document.getElementsByClassName("test"), function(eTest) {
+			var eTitle = eTest.getElementsByTagName("h4")[0];
+			var eCode = eTest.getElementsByClassName("code")[0];
+			var eData = eTest.getElementsByClassName("data")[0];
+			var eOutput = eTest.getElementsByClassName("output")[0];
+			var data = eData && eData.textContent.trim();
+			data = (data && JSON.parse(data)) || undefined;
+			testEval(eTitle.textContent, [
+				{ t: eCode.textContent, e: eOutput.textContent, it: data }
+			]);
 		});
 	}
-
+	
 	var peopleData = { people: [{ name: "Joe", addresses: [ { street: "Street A", city: "A" }, { city: "B" } ] }, { name: "Steve" }] };
 	
 	testEval("Simple", [
@@ -84,10 +144,10 @@
 	]);
 	
 	testEval("BlockFunc", [
-		{ it: function(_$, p) { return "1"; }, t: "{{#(it)}}", e: "1" },
-		{ it: function(_$, p) { return p.name(_$) + " " + p.detail(_$) + " " + p.content(_$, null); }, t: "{{#(it).name}}Car{{#.detail}}a vehicle{{#.}}foobar{{#}}", e: "Car a vehicle foobar" },
-		{ it: function(_$, p) { return p.name(_$, "blue"); }, t: "{{#(it).name}}Car {{_a}}{{#}}", e: "Car blue" },
-		{ it: function(_$, p) { return p.name(_$, "blue"); }, t: "{{:c#(it).name}}Car {{_a}}{{#}}- {{c}} + {{c}}!", e: "- Car blue + Car blue!" },
+		{ it: function(_$, _$blocks, p) { return "1"; }, t: "{{#(it)}}", e: "1" },
+		{ it: function(_$, _$blocks, p) { return p.name(_$, _$blocks) + " " + p.detail(_$, _$blocks) + " " + p.content(_$, _$blocks); }, t: "{{#(it).name}}Car{{#.detail}}a vehicle{{#.}}foobar{{#}}", e: "Car a vehicle foobar" },
+		{ it: function(_$, _$blocks, p) { return p.name(_$, _$blocks, "blue"); }, t: "{{#(it).name}}Car {{_a}}{{#}}", e: "Car blue" },
+		{ it: function(_$, _$blocks, p) { return p.name(_$, _$blocks, "blue"); }, t: "{{:c#(it).name}}Car {{_a}}{{#}}- {{c}} + {{c}}!", e: "- Car blue + Car blue!" },
 	]);
 	
 	testEval("BlockMeta", [
@@ -116,26 +176,7 @@
 		{ t: "A{{?false}} \n B \n {{?}}C", e: "AC" },
 	]);
 	
-	testEval("InlineBlockWithRecursionAndRedefinition", [
-		{ t: ""
-			+ "\n{{:control#}}"
-			+ "\n    {{#content}} {{#title}} {{?_a}}"
-			+ "\n        {{#$(_a-1).title}}"
-			+ "\n            d"
-			+ "\n        {{#.}}"
-			+ "\n            e"
-			+ "\n        {{#}}"
-			+ "\n    {{?}}"
-			+ "\n{{#.title}}"
-			+ "\n    c"
-			+ "\n{{#.}}"
-			+ "\n    a"
-			+ "\n{{#}}{{#(control(2)).title}}"
-			+ "\n    b"
-			+ "\n{{#}}{{#(control()).title}}"
-			+ "\n    f"
-			+ "\n{{#.$}}g {{#title}}{{#}}", e: "a b e d e d g f" }
-	]);
-	
+	testBlocks();
+
 </script>
 </body></html>

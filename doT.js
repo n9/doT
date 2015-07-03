@@ -7,6 +7,16 @@
 
 (function(global) {
 	"use strict";
+	
+	var doT = { version: '2.0.0' };
+
+	if (typeof module !== 'undefined' && module.exports) {
+		module.exports = doT;
+	} else if (typeof define === 'function' && define.amd) {
+		define(function(){return doT;});
+	} else {
+		global.doT = doT;
+	}
 
 	var pBegin = "\\{\\{\\s*";
 	var pEnd = "\\s*\\}\\}";
@@ -25,58 +35,45 @@
 	var pParamContent = "[^" + lStringChars + sParam 
 		+ "\\{\\}" // wohak for object notation, e.g. {a: b}
 		+ "]";
+	doT.recurseBlock = '%';
 	
 	var re = function(p) {
 		return new RegExp(pBegin + p + pEnd, "g");
 	};
 
-	var doT = {
-		version: '2.0.0',
-		templateSettings: {
-			interpolate: re("([^" + sIterate + sConditional + sDefine + sUse + sParam + sBlock + sComment + sStatement + "]" + pAny + "*?)"
-				+ "(?:\\s*" + sParam + "\\s*(" + pParamContent + "+?))?"),
-			use: re(sUse + "\s*(" + pIdent + "+)"
-				+ "(?:\\s*" + sParam + "\\s*(" + pAny + "+?))?"),
-			define: re(sDefine + "\\s*(" + pIdent + "+)\\s*" + sParam + "(" + pAny + "*?)" + sUse),
-			defineParam: re(sDefine),
-			conditionalEnd: re(sConditional + "(" + sConditional + ")?"),
-			conditionalBegin: re(sConditional + "(" + sConditional + ")?" + "(?:(" + sBlock + ")(" + pIdentWithSlash + "+))?"
-				+ "\\s*(" + pAny + "*?)"
-				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
-			iterateEnd: re(sIterate + "(" + sIterate + ")?"),
-			iterateBegin: re(sIterate
-				+ "\\s*(" + pAny + "+?)"
-				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*)"
-				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*)"
-				+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*))?)?)?"),
-			blockEnd: re(sBlock + "(\\.(" + pIdentWithSlash + "*))?"),
-			block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:(" + pIdentWithSlash + "+@?)?(" + pAny + "*?))??(\\.(" + pIdentWithSlash + "*))?"),
-			variable: re(sParam + "(" + pAny + "+?)"),
-			statement: re(sStatement + "(" + pAny + "+?)"),
-			comment: re(sComment + pAny + "*?" + sComment),
-			innerBeginText: "{{*<*}}",
-			innerEndText: "{{*>*}}",
-			innerBeginMatch: pBegin + sComment + "<" + sComment + pEnd,
-			innerEndMatch: pBegin + sComment + ">" + sComment + pEnd,
-			dataVar: 'it',
-			opVar: '_$',
-			argVar: '_a',
-			blockContent: 'content',
-			strip: true
-		},
-		template: undefined, //fn, compile template
-		compile:  undefined  //fn, for express
+	doT.templateSettings = {
+		interpolate: re("([^" + sIterate + sConditional + sDefine + sUse + sParam + sBlock + sComment + sStatement + "]" + pAny + "*?)"
+			+ "(?:\\s*" + sParam + "\\s*(" + pParamContent + "+?))?"),
+		use: re(sUse + "\s*(" + pIdent + "+)"
+			+ "(?:\\s*" + sParam + "\\s*(" + pAny + "+?))?"),
+		define: re(sDefine + "\\s*(" + pIdent + "+)\\s*" + sParam + "(" + pAny + "*?)" + sUse),
+		defineParam: re(sDefine),
+		conditionalEnd: re(sConditional + "(" + sConditional + ")?"),
+		conditionalBegin: re(sConditional + "(" + sConditional + ")?" + "(?:(" + sBlock + ")(" + pIdentWithSlash + "+))?"
+			+ "\\s*(" + pAny + "*?)"
+			+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "+))?"),
+		iterateEnd: re(sIterate + "(" + sIterate + ")?"),
+		iterateBegin: re(sIterate
+			+ "\\s*(" + pAny + "+?)"
+			+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*)"
+			+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*)"
+			+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*))?)?)?"),
+		blockEnd: re(sBlock + "(\\.(" + pIdentWithSlash + "*))?"),
+		block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:((?:" + pIdentWithSlash + "+|" + doT.recurseBlock + ")@?)?(" + pAny + "*?))??(\\.(" + pIdentWithSlash + "*))?"),
+		variable: re(sParam + "(" + pAny + "+?)"),
+		statement: re(sStatement + "(" + pAny + "+?)"),
+		comment: re(sComment + pAny + "*?" + sComment),
+		innerBeginText: "{{*<*}}",
+		innerEndText: "{{*>*}}",
+		innerBeginMatch: pBegin + sComment + "<" + sComment + pEnd,
+		innerEndMatch: pBegin + sComment + ">" + sComment + pEnd,
+		dataVar: 'it',
+		opVar: '_$',
+		blocksVar: '_$blocks',
+		argVar: '_a',
+		blockContent: 'content',
+		strip: true
 	};
-
-	var inlineBlockArg = '$';
-
-	if (typeof module !== 'undefined' && module.exports) {
-		module.exports = doT;
-	} else if (typeof define === 'function' && define.amd) {
-		define(function(){return doT;});
-	} else {
-		global.doT = doT;
-	}
 
 	var encodeHTMLRules = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': '&#34;', "'": '&#39;', "/": '&#47;' },
 		matchHTML = /&|<|>|"|'|\//g;
@@ -106,55 +103,53 @@
 			target[k] = source[k];
 		}
 	};
-	
-	doT.derive = function(blocks) {
-		var _$ = Object.create(this);
-		var newBlocks = Object.create(_$.blocks);
-		if (blocks)
-			assign(newBlocks, blocks);
-		_$.blocks = newBlocks;
-		return _$;
+	var mayDeriveBlocks = function(proto, current)	{
+		if (!current)
+			return proto;
+		var r = Object.create(proto);
+		assign(r, current);
+		return r;
 	};
-	doT.blockWriter = function(name, jas, tas) { 
+	
+	doT.blockWriter = function(name, blocks, jas, tas) { 
 		var _$ = this;
 		return "[" + name
 			+ Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]"; }).join("")
-			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](_$, jas) + "]"; }).join("") + "]"; 
+			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](_$, blocks, jas) + "]"; }).join("") + "]"; 
 	};
-	doT.blockProcessor = function(name, jas, tas) {
+	doT.blockProcessor = function(name, blocks, jas, tas) {
 		var _$ = this;
-		var block = (tas && tas[name]) || _$.blocks[name];
+		var block = (tas && tas[name]) || blocks[name];
 		if (block) {
-			return block(_$.derive(tas), jas);
+			return block(_$, mayDeriveBlocks(blocks, tas), jas);
 		}
-		return _$.unknownBlock(name, jas, tas);
+		return _$.unknownBlock(name, blocks, jas, tas);
 	};
-	doT.blockSplatter = function (name, jas, tas, _b) {
+	doT.blockSplatter = function (name, blocks, jas, tas, _b) {
 		var _$ = this;
 		var nl = name.length;
 		if (!nl || name[nl - 1] !== '@')
-			return _b.call(_$, name, jas, tas);
+			return _b.call(_$, name, blocks, jas, tas);
 		var out = '';
 		var jl = jas ? jas.length : 0;
 		name = name.substr(0, nl - 1); 
 		for (var i = 0; i < jl; i++)
-			out += _b.call(_$, name, jas[i], tas);
+			out += _b.call(_$, name, blocks, jas[i], tas);
 		return out;
 	};
-	doT.block = function(name, jas, tas) { 
-		return doT.blockSplatter.call(this, name, jas, tas, doT.blockProcessor); 
+	doT.block = function(name, blocks, jas, tas) { 
+		return doT.blockSplatter.call(this, name, blocks, jas, tas, doT.blockProcessor); 
 	};
-	doT.inlineBlock = function(dc, dt) { 
+	doT.inlineBlock = function(dc, dbs, dt) { 
 		return function(j) { 
-			return function(cc, ct) { 
-				cc = cc.derive(dt);
-				return cc.b(inlineBlockArg, j, ct);
+			return function(cc, cbs, ct) {
+				return cc.b(doT.recurseBlock, mayDeriveBlocks(dbs, dt), j, ct);
 			}; 
 		}; 
 	};
-	doT.blockMeta = function(name, args) {
+	doT.blockMeta = function(name, _$blocks, args) {
 		var _$ = this;
-		return _$.blocks[name] || _$.unknownBlockMeta(name, args);
+		return _$blocks[name] || _$.unknownBlockMeta(name, _$blocks, args);
 	};
 	
 	doT.defaultContext = {
@@ -164,8 +159,6 @@
 		b: doT.block, 
 		ib: doT.inlineBlock,
 		bm: doT.blockMeta,
-		blocks: {},
-		derive: doT.derive,
 		unknownBlock: doT.blockWriter,
 		unknownBlockMeta: no
 	};
@@ -226,8 +219,8 @@
 		function processBlock(declareVar, name, args, paramBlock, paramName) {
 			var inlineBlock = declareVar && !name;
 			if (!paramName)
-				paramName = paramBlock ? c.blockContent : inlineBlockArg;
-			var startParam = "'" + paramName + "':function(" + c.opVar + "," + c.argVar + "){var out=" + innerBegin;
+				paramName = paramBlock ? c.blockContent : doT.recurseBlock;
+			var startParam = "'" + paramName + "':function(" + c.opVar + "," + c.blocksVar + "," + c.argVar + "){var out=" + innerBegin;
 			var endBlock = "));out+='";
 			if (name || args || declareVar) {
 				var startBlock = "'";
@@ -240,8 +233,8 @@
 				}
 				args = args ? unescape(args) : inlineBlock ? c.opVar + ".ib" : "null";
 				startBlock += name 
-					? c.opVar + ".b('" + name + "'" + "," + args
-					: args + "(" + c.opVar;
+					? c.opVar + ".b('" + name + "'," + c.blocksVar + "," + args
+					: args + "(" + c.opVar + "," + c.blocksVar;
 				if (paramBlock || inlineBlock) {
 					return startBlock + ",{" + startParam;
 				} else {
@@ -265,7 +258,7 @@
 			.replace(c.conditionalBegin, function(m, elsecase, block, blockName, code, vname) {
 				code = unescape(code);
 				if (block) {
-					code = c.opVar + ".bm('" + blockName + "'," + (code || "null") + ")";
+					code = c.opVar + ".bm('" + blockName + "'," + c.blocksVar + "," + (code || "null") + ")";
 				}
 				if (vname) {
 					vars[vname] = true;
@@ -331,12 +324,12 @@
 	};
 	doT.globals = function(c) {
 		c = resolveSettings(c);
-		return [c.dataVar, c.opVar];
+		return [c.dataVar, c.opVar, c.blocksVar];
 	};
 	doT.wrap = function(source, c) {
 		c = resolveSettings(c);
 		try {
-			return new Function(c.dataVar, c.opVar, source);
+			return new Function(c.opVar, c.blocksVar, c.dataVar, source);
 		} catch (e) {
 			if (typeof console !== 'undefined') console.log("Could not create a template function: " + source);
 			throw e;
