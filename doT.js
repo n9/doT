@@ -81,9 +81,16 @@
 		return t !== undefined && t !== null ? t.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : t;
 	};
 	
-	doT.interpolate = doT.encodeHTML;
-	doT.condition = function(c) { return !!c; };
-	doT.loop = function(a, f, sf) { 
+	function no() { return false; }
+	function pass(a) { return a; }
+	
+	var assign = function(target, source) {
+		for (var k in source) {
+			target[k] = source[k];
+		}
+	};
+	
+	doT.loop = function doTLoop(a, f, sf) { 
 		var o = ''; 
 		if (a) {
 			var l = a.length - 1, i = -1, s = ''; 
@@ -96,30 +103,6 @@
 		return o;
 	};
 	
-	var no = function() { return false; };
-	var assign = function(target, source) {
-		for (var k in source) {
-			target[k] = source[k];
-		}
-	};
-	
-	doT.fullDerive = function() {
-		var C = function DoTDerivedContext(blocks) { 
-			this.blocks = blocks;
-		};
-		C.prototype = this;
-		C.prototype.constructor = C;
-		return new C({});
-	};
-	
-	doT.mayDerive = function(newBlocks) {
-		if (!newBlocks)
-			return this;
-		var _$ = this;
-		var blocks = Object.create(_$.blocks);
-		assign(blocks, newBlocks);
-		return new _$.constructor(blocks);
-	}; 
 	doT.blockWriter = function(name, jas, tas) { 
 		var _$ = this;
 		return "[" + name
@@ -146,42 +129,66 @@
 			out += _b.call(_$, name, jas[i], tas);
 		return out;
 	};
-	doT.block = function(name, jas, tas) { 
+
+	var cp = { };
+	
+	cp.i = doT.encodeHTML;
+	
+	cp.c = function doTCondition(c) { return !!c; };
+	
+	cp.l = doT.loop;
+	
+	cp.b = function doTBlock(name, jas, tas) { 
 		return doT.blockSplatter.call(this, name, jas, tas, doT.blockProcessor); 
 	};
-	doT.inlineBlock = function(dt) { 
+	
+	cp.ib = function doTInlineBlock(dt) { 
 		return function(j) { 
 			return function(cc, ct) {
 				var bs = {};
 				assign(bs, dt);
 				assign(bs, ct);
 				// what about dc blocks (with prototype chain)? (closure vs. block behavior)
-				return dt[doT.recurseBlock](cc.mayDerive(bs), j);
+				var c = cc.mayDerive(bs);
+				return c.wrapInlineBlock(dt[doT.recurseBlock](c, j));
 			};
 		};
 	};
-	doT.blockMeta = function(name, args) {
+	
+	cp.bm = function doTBlockMeta(name, args) {
 		var _$ = this;
 		return _$.blocks[name] || _$.unknownBlockMeta(name, args);
 	};
 	
+	cp.wrapInlineBlock = pass;
+	
+	cp.unknownBlock = doT.blockWriter;
+	
+	cp.unknownBlockMeta = no;
+	
+	cp.mayDerive = function(newBlocks) {
+		if (!newBlocks)
+			return this;
+		var _$ = this;
+		var blocks = Object.create(_$.blocks);
+		assign(blocks, newBlocks);
+		return new _$.constructor(blocks);
+	};
+	
+	cp.fullDerive = function() {
+		var C = function DoTDerivedContext(blocks) { 
+			this.blocks = blocks;
+		};
+		C.prototype = this;
+		C.prototype.constructor = C;
+		return new C({});
+	};
+
 	doT.Context = function DoTContext(blocks) { 
 		this.blocks = blocks || {};
 	};
-	
-	doT.Context.prototype = {
-		i: doT.interpolate, 
-		c: doT.condition, 
-		l: doT.loop, 
-		b: doT.block, 
-		ib: doT.inlineBlock,
-		bm: doT.blockMeta,
-		unknownBlock: doT.blockWriter,
-		unknownBlockMeta: no,
-		mayDerive: doT.mayDerive,
-		fullDerive: doT.fullDerive,
-		constructor: doT.Context,
-	};
+	cp.constructor = doT.Context;
+	doT.Context.prototype = cp;
 
 	var skip = /$^/;
 
