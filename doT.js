@@ -132,9 +132,16 @@
 
 	var cp = { };
 	
-	cp.i = doT.encodeHTML;
+	cp.i = function(v) {
+		if (v instanceof DoTLiteral)
+			return v.text;
+		return doT.encodeHTML(v);
+	};
 	
-	cp.c = function doTCondition(c) { return !!c; };
+	cp.c = function doTCondition(c) { 
+		return !!c && (!(c instanceof Function) || (c.name !== 'DoTBlockDef') 
+			|| this.bm(c.blockName, c.blockArguments)); 
+	};
 	
 	cp.l = doT.loop;
 	
@@ -150,7 +157,7 @@
 				assign(bs, ct);
 				// what about dc blocks (with prototype chain)? (closure vs. block behavior)
 				var c = cc.mayDerive(bs);
-				return c.wrapInlineBlock(dt[doT.recurseBlock](c, j));
+				return new DoTLiteral(dt[doT.recurseBlock](c, j));
 			};
 		};
 	};
@@ -160,7 +167,14 @@
 		return _$.blocks[name] || _$.unknownBlockMeta(name, args);
 	};
 	
-	cp.wrapInlineBlock = pass;
+	cp.block = function(name, jas) {
+		var blockDef = function DoTBlockDef(c, tas) {
+			return new DoTLiteral(c.b(name, jas, tas));
+		};
+		blockDef.blockName = name;
+		blockDef.blockArguments = jas;
+		return blockDef;
+	};
 	
 	cp.unknownBlock = doT.blockWriter;
 	
@@ -184,11 +198,21 @@
 		return new C({});
 	};
 
-	doT.Context = function DoTContext(blocks) { 
+	function DoTContext(blocks) { 
 		this.blocks = blocks || {};
+	}
+	cp.constructor = DoTContext;
+	DoTContext.prototype = cp;
+	doT.Context = DoTContext;
+	
+	function DoTLiteral(v) {
+		this.text = v;
+	}
+	DoTLiteral.prototype = {
+		constructor: DoTLiteral,
+		toString: function() { return "!DoTLiteral!"; },
 	};
-	cp.constructor = doT.Context;
-	doT.Context.prototype = cp;
+	doT.Literal = DoTLiteral;
 
 	var skip = /$^/;
 

@@ -144,8 +144,9 @@
 	]);
 	
 	testEval("BlockFunc", [
-		{ it: function(_$, p) { return "1"; }, t: "{{#(it)}}", e: "1" },
-		{ it: function(_$, p) { return p.name(_$) + " " + p.detail(_$) + " " + p.content(_$); }, t: "{{#(it).name}}Car{{#.detail}}a vehicle{{#.}}foobar{{#}}", e: "Car a vehicle foobar" },
+		{ it: function(_$, p) { return "<1>"; }, t: "{{#(it)}}", e: "&#60;1&#62;" },
+		{ it: function(_$, p) { return new doT.Literal("<1>"); }, t: "{{#(it)}}", e: "<1>" },
+		{ it: function(_$, p) { return new doT.Literal(p.name(_$) + " " + p.detail(_$) + " " + p.content(_$)); }, t: "{{#(it).name}}<Car>{{#.detail}}a vehicle{{#.}}foobar{{#}}", e: "<Car> a vehicle foobar" },
 		{ it: function(_$, p) { return p.name(_$, "blue"); }, t: "{{#(it).name}}Car {{_a}}{{#}}", e: "Car blue" },
 		{ it: function(_$, p) { return p.name(_$, "blue"); }, t: "{{:c#(it).name}}Car {{_a}}{{#}}- {{c}} + {{c}}!", e: "- Car blue + Car blue!" },
 	]);
@@ -159,6 +160,13 @@
 	testEval("BlockVars", [
 		{ t: "{{:b#myBlock}}- {{b}} + {{b}}!", e: "- [myBlock] + [myBlock]!" },
 		{ t: "{{:b#myBlock.}} foo {{#}}- {{b}} + {{b}}!", e: "- [myBlock content=[ foo ]] + [myBlock content=[ foo ]]!" },
+	]);
+	
+	testEval("DynamicBlocks", [
+		{ t: "{{#(_$.block('name', [1, 2])).}}a{{#}}", e: "[name 0=[1] 1=[2] content=[a]]" },
+		{ t: "{{?_$.block('name', [1, 2]) :x}}yes{{??}}no{{?}}", e: "no" },
+		{ t: "{{:x#}}{{?_$.block('content') :x}}yes{{??}}no{{?}}{{#}}{{#(x()).}}c{{#}}", e: "yes" },
+		{ t: "{{:x#}}{{?_$.block('content', _a) :x}}{{#(x)}}{{??}}no{{?}}{{#}}{{#(x(5)).}}<c{{_a}}>{{#}}", e: "<c5>" },
 	]);
 	
 	testEval("Whitespaces", [
