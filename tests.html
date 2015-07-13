@@ -44,7 +44,6 @@
  (a (aa) (ab (aba)))</pre>
 </div>
 
-
 <div id="qunit-fixture"></div>
 
 <script src="https://code.jquery.com/qunit/qunit-1.17.1.js"></script>
@@ -161,6 +160,23 @@
 		{ t: "{{:b#myBlock}}- {{b}} + {{b}}!", e: "- [myBlock] + [myBlock]!" },
 		{ t: "{{:b#myBlock.}} foo {{#}}- {{b}} + {{b}}!", e: "- [myBlock content=[ foo ]] + [myBlock content=[ foo ]]!" },
 	]);
+	
+	testEval("InlineBlocks", [
+		{ t: "{{:x#}}a{{#}}{{#(x())}}", e: "a" },
+		{ t: "{{:x#}}a{{_a}}{{#}}{{#(x(1))}}", e: "a1" },
+		{ t: "{{:x#}}a{{#content}}{{#}}{{#(x()).}}b{{#}}", e: "ab" },
+		{ t: "{{:x#}}a{{_a}}{{#content}}{{#}}{{#(x(1)).}}b{{#}}", e: "a1b" },
+		{ t: "{{:x#}}a{{#content(2)}}{{#}}{{#(x()).}}b{{_a}}{{#}}", e: "ab2" },
+		{ t: "{{:x#}}a{{_a}}{{#content(2)}}{{#}}{{#(x(1)).}}b{{_a}}{{#}}", e: "a1b2" },
+		{ t: "{{:x#}}a{{_a}}{{#content(_a+1)}}{{#}}{{#(x(1)).}}b{{_a}}{{#}}", e: "a1b2" },
+		{ t: "{{:x#}}a{{_a}}{{#content(_a+1).}}c{{#}}{{#}}{{#(x(1)).}}b{{_a}}{{#content}}{{#}}", e: "a1b2c" },
+		{ t: "{{:x#}}a{{_a}}{{#content(_a+1).}}c{{_a}}{{#}}{{#}}{{#(x(1)).}}b{{_a}}{{#content(_a+1)}}{{#}}", e: "a1b2c3" },
+	]);	
+	
+	testEval("ArgRecursion", [
+		{ t: "{{:x#}}a{{_a}}{{#content(_a)}}{{#}}{{#(x(5)).}}b{{?_a>0}}{{#content(_a-1)}}{{_a}}{{?}}{{#}}", e: "a5bbbbbb12345" },
+		{ t: "{{:x#}}a{{_a}}{{#content(_a+1).}}c{{?_a>0}}{{#content(_a-1)}}{{?}}d{{_a}}{{#}}{{#}}{{#(x(1)).}}b{{_a}}{{#content(_a+1)}}{{#}}", e: "a1b2ccccd0d1d2d3" },
+	]);		
 	
 	testEval("DynamicBlocks", [
 		{ t: "{{#(_$.block('name', [1, 2])).}}a{{#}}", e: "[name 0=[1] 1=[2] content=[a]]" },

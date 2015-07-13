@@ -111,7 +111,7 @@
 	};
 	doT.blockProcessor = function(name, jas, tas) {
 		var _$ = this;
-		var block = (tas && tas[name]) || _$.blocks[name];
+		var block = _$.blocks[name];
 		if (block) {
 			return block(_$.mayDerive(tas), jas);
 		}
@@ -129,6 +129,8 @@
 			out += _b.call(_$, name, jas[i], tas);
 		return out;
 	};
+	
+	var blockDefType = { };
 
 	var cp = { };
 	
@@ -139,7 +141,7 @@
 	};
 	
 	cp.c = function doTCondition(c) { 
-		return !!c && (!(c instanceof Function) || (c.name !== 'DoTBlockDef') 
+		return !!c && (!(c instanceof Function) || (c.type !== blockDefType)
 			|| this.bm(c.blockName, c.blockArguments)); 
 	};
 	
@@ -171,6 +173,7 @@
 		var blockDef = function DoTBlockDef(c, tas) {
 			return new DoTLiteral(c.b(name, jas, tas));
 		};
+		blockDef.type = blockDefType;
 		blockDef.blockName = name;
 		blockDef.blockArguments = jas;
 		return blockDef;
@@ -195,7 +198,7 @@
 		};
 		C.prototype = this;
 		C.prototype.constructor = C;
-		return new C({});
+		return new C(this.blocks);
 	};
 
 	function DoTContext(blocks) { 
