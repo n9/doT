@@ -91,9 +91,16 @@
 	};
 	
 	doT.loop = function doTLoop(a, f, sf) { 
-		var o = ''; 
-		if (a) {
-			var l = a.length - 1, i = -1, s = ''; 
+		var o = '', l, i, s; 
+		if (typeof a === "number") {
+			l = a - 1; i = -1; s = ''; 
+			while (i < l) {
+				if (sf && i === 0)
+					s = sf(this);
+				o += s + f(this, ++i, i, a);
+			}
+		} else if (a) {
+			l = a.length - 1; i = -1; s = ''; 
 			while (i < l) {
 				if (sf && i === 0)
 					s = sf(this);

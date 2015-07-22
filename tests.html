@@ -119,6 +119,9 @@
 	]);
 	
 	testEval("Loop", [
+		{ t: "{{@5 :v}}{{v}}{{@@}}, {{@}}", e: "0, 1, 2, 3, 4" },
+		{ it: 2, t: "{{@it :v}}{{v}}{{@@}}, {{@}}", e: "0, 1" },
+		{ t: "{{@'abc' :v:i}}{{i + 1}}. {{v}}{{@@}}, {{@}}", e: "1. a, 2. b, 3. c" },
 		{ it: peopleData, t: "{{@it.people[0].addresses :a}}City: {{a.city}}.{{@}}", e: "City: A.City: B." },
 		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{ai + 1}}. city: {{a.city}};{{@}}", e: "1. city: A;2. city: B;" },
 		{ it: peopleData, t: "{{@it.people[0].addresses :a:ai}}{{?ai}}, {{?}}{{ai + 1}}. city: {{a.city}}{{@}}", e: "1. city: A, 2. city: B" },
