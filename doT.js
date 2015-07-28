@@ -59,6 +59,7 @@
 			+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*)"
 			+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*))?)?)?"),
 		blockParam: re("(\\.(" + pIdentWithSlash + "*))"),
+		blockDef: re("(" + pIdent + "+)" + sBlock),
 		block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:((?:" + pIdentWithSlash + "+|" + doT.recurseBlock + ")@?)?(" + pAny + "*?))??(\\.(" + pIdentWithSlash + "*))?"),
 		variable: re(sParam + "(" + pAny + "+?)"),
 		statement: re(sStatement + "(" + pAny + "+?)"),
@@ -120,7 +121,7 @@
 		var _$ = this;
 		var block = _$.blocks[name];
 		if (block) {
-			return block(_$.mayDerive(tas), jas);
+			return block(_$, jas, tas);
 		}
 		return _$.unknownBlock(name, jas, tas);
 	};
@@ -165,7 +166,7 @@
 				assign(bs, dt);
 				assign(bs, ct);
 				// what about dc blocks (with prototype chain)? (closure vs. block behavior)
-				var c = cc.mayDerive(bs);
+				var c = cc.clone(bs);
 				return new DoTLiteral(dt[doT.recurseBlock](c, j));
 			};
 		};
@@ -174,6 +175,17 @@
 	cp.bm = function doTBlockMeta(name, args) {
 		var _$ = this;
 		return _$.blocks[name] || _$.unknownBlockMeta(name, args);
+	};
+	
+	cp.bd = function doTBlockDef(name, dt) {
+		var _$ = this;
+		_$.blocks[name] = function(cc, j, ct) {				
+			var bs = {};
+			assign(bs, dt);
+			assign(bs, ct);
+			var c = cc.clone(bs);
+			return dt[doT.recurseBlock](c, j);
+		};
 	};
 	
 	cp.block = function(name, jas) {
@@ -190,12 +202,16 @@
 	
 	cp.unknownBlockMeta = no;
 	
-	cp.mayDerive = function(newBlocks) {
-		if (!newBlocks)
-			return this;
+	cp.clone = function(newBlocks) {
 		var _$ = this;
 		var blocks = Object.create(_$.blocks);
-		assign(blocks, newBlocks);
+		if (newBlocks) {
+			Object.keys(newBlocks).forEach(function(k) {
+				blocks[k] = function(c, j, t) {
+					return newBlocks[k](c.clone(t), j);
+				};
+			});
+		}
 		return new _$.constructor(blocks);
 	};
 	
@@ -277,6 +293,8 @@
 		var innerBegin = c.innerBeginText + "'";
 		var innerEnd = "'" + c.innerEndText;
 		
+		var blockDefToken = {};
+		
 		function processBlock(declareVar, name, args, paramBlock, paramName) {
 			var inlineBlock = declareVar && !name && !args;
 			if (!paramName)
@@ -285,7 +303,9 @@
 			var endBlock = "));out+='";
 			if (name || args || declareVar) {
 				var startBlock = "'";
-				if (declareVar) {
+				if (declareVar === blockDefToken) {
+					return startBlock + ";(" + c.opVar + ".bd('" + name + "',{" + startParam;
+				} else if (declareVar) {
 					startBlock += ";var " + unescape(declareVar) + "=(";
 					if (inlineBlock)
 						return startBlock + c.opVar + ".ib({" + startParam;
@@ -346,7 +366,10 @@
 			})
 			.replace(c.blockParam, function(m, paramBlock, paramName) {
 				return processBlock(null, null, null, paramBlock, paramName);
-			})			
+			})
+			.replace(c.blockDef, function(m, name) {
+				return processBlock(blockDefToken, name, null, null, null);
+			})
 			.replace(c.block, function(m, declareVar, name, args, paramBlock, paramName) {
 				return processBlock(declareVar, name, args, paramBlock, paramName);
 			})
