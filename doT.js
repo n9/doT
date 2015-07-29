@@ -142,13 +142,21 @@
 
 	var cp = { };
 	
-	cp.i = function(v) {
+	cp.i = function doTInterpolate(v) {
 		if (v instanceof DoTLiteral)
 			return v.text;
 		return doT.encodeHTML(v);
 	};
 	
-	cp.c = function doTCondition(c) { 
+	cp.c = function doTCondition(c, a) {
+		var _$ = this;
+		if (!_$.ic(c))
+			return false;
+		a(c);
+		return true;
+	};
+	
+	cp.ic = function doTInterpolateCondition(c) { 
 		return !!c && (!(c instanceof Function) || (c.type !== blockDefType)
 			|| this.bm(c.blockName, c.blockArguments)); 
 	};
@@ -282,7 +290,6 @@
 		tmpl = tmpl.replace(c.comment, "");
 		var sid = 0,
 			str  = (c.use || c.define) ? resolveDefs(c, tmpl, def || {}) : tmpl;
-		var vars = {};
 		if (c.strip) {
 			str = str
 				.replace(/(^|\r|\n)[\t ]*|[ \t]*(\r|\n|$)/g,'\n')
@@ -333,21 +340,25 @@
 			}
 		}
 		
+		var condBegin = "{out+=" + innerBegin;
+		var condEnd = innerEnd + ";})";
+		
 		str = ("out='" + str
 			.replace(/'|\\/g, '\\$&')
 			.replace(c.conditionalEnd, function(m, elsecase) {
-				return elsecase ?  innerEnd + ";}else{out+=" + innerBegin : innerEnd + ";}out+='";
+				return elsecase 
+					? condEnd + "||" + c.opVar + ".c(true,function()" + condBegin
+					: condEnd + ";out+='";
 			})
 			.replace(c.conditionalBegin, function(m, elsecase, block, blockName, code, vname) {
 				code = unescape(code);
 				if (block) {
 					code = c.opVar + ".bm('" + blockName + "'," + (code || "null") + ")";
 				}
-				if (vname) {
-					vars[vname] = true;
-					code = vname + "=" + code;
-				}
-				return elsecase ? innerEnd + ";}else if(" + c.opVar + ".c(" + code + ")){out+=" + innerBegin : "';if(" + c.opVar + ".c(" + code + ")){out+=" + innerBegin;
+				code = c.opVar + ".c(" + code + ",function(" + vname + ")";
+				return elsecase 
+					? condEnd + "||" + code + condBegin
+					: "';" + code + condBegin;
 			})
 			.replace(c.iterateEnd, function(m, withSeparator) {
 				return innerEnd + ";return out;}" + (withSeparator ? ",function(" + c.opVar + "){var out=" + innerBegin : ")+'");
@@ -398,9 +409,6 @@
 			.replace(/(\s|;|\}|^|\{)out\+='';/g, '$1').replace(/\+''/g, '')
 			.replace(/(\s|;|\}|^|\{)out\+=''\+/g,'$1out+=');
 
-		for (var k in vars) {
-			str = k + "," + str;
-		}
 		return "var " + str;
 	};
 

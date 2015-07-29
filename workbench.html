@@ -76,7 +76,11 @@ pre { white-space: pre-wrap; }
 		}
 				
 		try {
-			var r = JSHINT(compiled, null, dotGlobals);
+			var r = JSHINT(compiled, {
+				eqeqeq: true,
+				freeze: true,
+				expr: true,
+			}, dotGlobals);
 			eDiag.textContent = "errors: " + JSHINT.errors.map(function(e) { return "[" + e.line + "," + e.character + "] " + e.code + ": " + e.reason; }).join("\r\n")
 				+ "\r\nundefs: " + JSHINT.undefs.map(function(u) { return "[" + u[2].line + "," + u[2].character + "] " + u[2].value; }).join("\r\n");
 			aceCompiled.session.setAnnotations(JSHINT.errors.map(function(e) { return { row: e.line - 1, column: e.character - 1, text: e.reason, type: e.code[0] === 'W' ? "warning" : "error" };}).concat(JSHINT.undefs.map(function(u) { return { row: u[2].line - 1, column: u[2].character - 1, text: u[2].value + " is not defined", type: "info" };})));
