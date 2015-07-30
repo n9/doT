@@ -75,11 +75,16 @@
 		strip: true
 	};
 
-	var encodeHTMLRules = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': '&#34;', "'": '&#39;', "/": '&#47;' },
-		matchHTML = /&|<|>|"|'|\//g;
+	var encodeHTMLRules = { "&": "&#38;", "<": "&#60;", ">": "&#62;", '"': "&#34;" },
+		matchHTML = /[&<>"]/g;
 	
 	doT.encodeHTML = function(t) {
 		return t !== undefined && t !== null ? t.toString().replace(matchHTML, function(m) {return encodeHTMLRules[m] || m;}) : t;
+	};
+	doT.extractText = function(h) {
+		var e = document.createElement("b");
+		e.innerHTML = h;
+		return e.textContent;
 	};
 	
 	function no() { return false; }
@@ -120,9 +125,8 @@
 	doT.blockProcessor = function(name, jas, tas) {
 		var _$ = this;
 		var block = _$.blocks[name];
-		if (block) {
+		if (block)
 			return block(_$, jas, tas);
-		}
 		return _$.unknownBlock(name, jas, tas);
 	};
 	doT.blockSplatter = function (name, jas, tas, _b) {
@@ -144,7 +148,7 @@
 	
 	cp.i = function doTInterpolate(v) {
 		if (v instanceof DoTLiteral)
-			return v.text;
+			return v.html;
 		return doT.encodeHTML(v);
 	};
 	
@@ -166,6 +170,10 @@
 	cp.b = function doTBlock(name, jas, tas) { 
 		return doT.blockSplatter.call(this, name, jas, tas, doT.blockProcessor); 
 	};
+		
+	cp.bg = function doTBlock(name, jas, tas) { 
+		return new DoTLiteral(this.b(name, jas, tas));
+	};
 	
 	cp.ib = function doTInlineBlock(dt) { 
 		return function(j) { 
@@ -182,10 +190,15 @@
 	
 	cp.bm = function doTBlockMeta(name, args) {
 		var _$ = this;
-		return _$.blocks[name] || _$.unknownBlockMeta(name, args);
+		var b = _$.blocks[name] || _$.unknownBlockMeta(name, args);
+		if (!b)
+			return false;
+		return function(c, j, t) {
+			return new DoTLiteral(b(c, j, t));
+		};
 	};
 	
-	cp.bd = function doTBlockDef(name, dt) {
+	cp.bd = function doTBlockDefine(name, dt) {
 		var _$ = this;
 		_$.blocks[name] = function(cc, j, ct) {				
 			var bs = {};
@@ -215,8 +228,9 @@
 		var blocks = Object.create(_$.blocks);
 		if (newBlocks) {
 			Object.keys(newBlocks).forEach(function(k) {
+				var b = newBlocks[k];
 				blocks[k] = function(c, j, t) {
-					return newBlocks[k](c.clone(t), j);
+					return b(c.clone(t), j);
 				};
 			});
 		}
@@ -240,11 +254,11 @@
 	doT.Context = DoTContext;
 	
 	function DoTLiteral(v) {
-		this.text = v;
+		this.html = v;
 	}
 	DoTLiteral.prototype = {
 		constructor: DoTLiteral,
-		toString: function() { return "!DoTLiteral!"; },
+		toString: function() { return doT.extractText(this.html); },
 	};
 	doT.Literal = DoTLiteral;
 
@@ -301,29 +315,32 @@
 		var innerEnd = "'" + c.innerEndText;
 		
 		var blockDefToken = {};
+		var fullEndBlock = "));out+='";
 		
 		function processBlock(declareVar, name, args, paramBlock, paramName) {
 			var inlineBlock = declareVar && !name && !args;
 			if (!paramName)
 				paramName = paramBlock ? c.blockContent : doT.recurseBlock;
 			var startParam = "'" + paramName + "':function(" + c.opVar + "," + c.argVar + "){var out=" + innerBegin;
-			var endBlock = "));out+='";
 			if (name || args || declareVar) {
-				var startBlock = "'";
-				if (declareVar === blockDefToken) {
-					return startBlock + ";(" + c.opVar + ".bd('" + name + "',{" + startParam;
-				} else if (declareVar) {
-					startBlock += ";var " + unescape(declareVar) + "=(";
+				if (declareVar === blockDefToken)
+					return "';(" + c.opVar + ".bd('" + name + "',{" + startParam;
+				var startBlock;
+				var endBlock = fullEndBlock;
+				if (declareVar) {
+					startBlock = "';var " + unescape(declareVar) + "=(";
 					if (inlineBlock)
 						return startBlock + c.opVar + ".ib({" + startParam;
 				} else {
-					startBlock += name
-						? "+("
-						: "+" + c.opVar + ".i(";
+					startBlock = "'+" + (name
+						? "("
+						: c.opVar + ".i(");
+					if (!paramBlock)
+						endBlock = "))+'";
 				}
 				args = args ? unescape(args) : "null";
 				startBlock += name 
-					? c.opVar + ".b('" + name + "'," + (args ? unescape(args) : "null")
+					? c.opVar + (declareVar ? ".bg('" : ".b('") + name + "'," + (args ? unescape(args) : "null")
 					: args + "(" + c.opVar;
 				if (paramBlock) {
 					return startBlock + ",{" + startParam;
@@ -335,7 +352,7 @@
 				if (paramBlock) {
 					return endParam + "," + startParam;
 				} else {
-					return endParam + "}" + endBlock;
+					return endParam + "}" + fullEndBlock;
 				}
 			}
 		}

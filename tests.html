@@ -164,6 +164,7 @@
 		{ t: "{{?#myBlock}}yes{{??}}no{{?}}", e: "no" },
 		{ t: "{{?#p/myBlock}}yes{{??}}no{{?}}", e: "no" },
 		{ t: "{{:_#}}{{?#myBlock}}yes{{??}}no{{?}}{{#}}{{#(_(null)).myBlock}}{{#}}", e: "yes" },
+		{ t: "{{a#}}{{#b}}{{:bx#b}}{{bx}}{{?#b:b}}{{#(b)}}{{b(_$)}}{{:bx#(b)}}{{bx}}{{?}}{{#}}{{#a.b}}<>{{#}}", e: "<><><><><>" },
 	]);
 	
 	testEval("BlockVars", [
@@ -188,6 +189,8 @@
 		{ t: "{{foo#}}Hello {{#content}}!{{#}}{{#foo.}}you{{#}}", e: "Hello you!" },
 		{ t: "{{foo#}}Hello {{#content}}!{{.}}world{{#}}{{#foo.}}you{{#}}", e: "Hello you!" },
 		{ t: "{{foo#}}Hello {{#content}}!{{.}}world{{#}}{{#foo}}", e: "Hello world!" },
+		{ t: "{{c#}}x<x>{{#}}{{?#c:c}}{{#(c)}}{{?}}", e: "x<x>" },
+		{ t: "{{c#}}x<x>{{#}}{{#c}}", e: "x<x>" },
 	]);	
 	
 	testEval("ArgRecursion", [
