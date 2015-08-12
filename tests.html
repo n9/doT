@@ -6,12 +6,12 @@
 </head><body>
 <div id="qunit"></div>
 
-<div class="test" title="InlineBlockWithRecursion">
+<div class="test">
 	<h4>InlineBlockWithRecursion</h4>
 	<pre class="code">
-	{{:control#}}
-		{{#content}} {{#title}} {{?_a}}
-			{{#%(_a-1).title}}
+	{{control#}}
+		{{#content}} {{#title}} {{?it}}
+			{{#control(it-1).title}}
 				d
 			{{.}}
 				e
@@ -21,27 +21,49 @@
 		c
 	{{.}}
 		a
-	{{#}}{{#(control(2)).title}}
+	{{#}}
+	
+	{{#control(2).title}}
 		b
-	{{#}}{{#(control(1))}}
+	{{#}}
+	{{#control(1)}}
 	</pre>
 	<pre class="output">a b e d e d a c e d </pre>
 </div>
 
-<div class="test" title="InlineBlockWithRecursion">
+<div class="test">
 	<h4>InlineBlockWithRecursionLoop</h4>
 	<pre class="code">
-	{{:control#}}
-		{{' '}}({{#name(_a.n)}}{{#%@(_a.c)}})
+	{{name#}}
+	    {{it}}
 	{{#}}
-	{{#(control(it)).name}}{{_a}}{{#}}
+	{{control#}}
+		{{' '}}({{#name(it.n)}}{{#control@(it.c)}})
+	{{#}}
+	{{#control(it)}}
 	</pre>
 	<pre class="data">
 	{"n": "a", "c": [{"n": "aa"}, {"n": "ab", "c": [{"n": "aba"}]}]}
 	</pre>
-	<pre class="output">
+	<pre class="output"> (a (aa) (ab (aba)))</pre>
+</div>
 
- (a (aa) (ab (aba)))</pre>
+<div class="test">
+	<h4>ClosureArgs</h4>
+	<pre class="code">
+	{{a#}}
+		{{#b.}}
+			{{#content}}
+		{{#}}
+	{{#}}
+
+	{{b#}}
+		{{#content}}
+	{{#}}
+
+	{{#a.}}a{{#}}
+	</pre>
+	<pre class="output">a</pre>
 </div>
 
 <div id="qunit-fixture"></div>
@@ -55,8 +77,8 @@
 	function equals() { var args = Array.prototype.slice.call(arguments); return function() { for (var i = 0; i < args.length; i++) if (args[i] !== arguments[i]) return false; return true; }; }
 	function returns(v) { return function() { return v; }; }
 
-	function doTcall(template, context) {
-		return template(new doT.Context(), context);
+	function doTcall(template, data, templates) {
+		return template(new doT.Context(), data, templates);
 	}
 	
 	function test(c) {
@@ -68,7 +90,7 @@
 				assert.ok(false, "Compilation failed: " + e.message);
 				return;
 			}
-			var r = doTcall(ct, c.it);
+			var r = doTcall(ct, c.it, c.d);
 			assert.equal(r, c.e, "it = " + JSON.stringify(c.it) + " > " + c.e);
 		});
 	}
@@ -174,18 +196,18 @@
 	
 	testEval("InlineBlocks", [
 		{ t: "{{:x#}}a{{#}}{{#(x())}}", e: "a" },
-		{ t: "{{:x#}}a{{_a}}{{#}}{{#(x(1))}}", e: "a1" },
+		{ t: "{{:x#}}a{{it}}{{#}}{{#(x(1))}}", e: "a1" },
 		{ t: "{{:x#}}a{{#content}}{{#}}{{#(x()).}}b{{#}}", e: "ab" },
-		{ t: "{{:x#}}a{{_a}}{{#content}}{{#}}{{#(x(1)).}}b{{#}}", e: "a1b" },
+		{ t: "{{:x#}}a{{it}}{{#content}}{{#}}{{#(x(1)).}}b{{#}}", e: "a1b" },
 		{ t: "{{:x#}}a{{#content(2)}}{{#}}{{#(x()).}}b{{_a}}{{#}}", e: "ab2" },
-		{ t: "{{:x#}}a{{_a}}{{#content(2)}}{{#}}{{#(x(1)).}}b{{_a}}{{#}}", e: "a1b2" },
-		{ t: "{{:x#}}a{{_a}}{{#content(_a+1)}}{{#}}{{#(x(1)).}}b{{_a}}{{#}}", e: "a1b2" },
-		{ t: "{{:x#}}a{{_a}}{{#content(_a+1).}}c{{#}}{{#}}{{#(x(1)).}}b{{_a}}{{#content}}{{#}}", e: "a1b2c" },
-		{ t: "{{:x#}}a{{_a}}{{#content(_a+1).}}c{{_a}}{{#}}{{#}}{{#(x(1)).}}b{{_a}}{{#content(_a+1)}}{{#}}", e: "a1b2c3" },
+		{ t: "{{:x#}}a{{it}}{{#content(2)}}{{#}}{{#(x(1)).}}b{{_a}}{{#}}", e: "a1b2" },
+		{ t: "{{:x#}}a{{it}}{{#content(it+1)}}{{#}}{{#(x(1)).}}b{{_a}}{{#}}", e: "a1b2" },
+		{ t: "{{:x#}}a{{it}}{{#content(it+1).}}c{{#}}{{#}}{{#(x(1)).}}b{{_a}}{{#content}}{{#}}", e: "a1b2c" },
+		{ t: "{{:x#}}a{{it}}{{#content(it+1).}}c{{_a}}{{#}}{{#}}{{#(x(1)).}}b{{_a}}{{#content(_a+1)}}{{#}}", e: "a1b2c3" },
 		{ t: "{{:foo#}}Hello {{#content}}!{{.}}world{{#}}{{#(foo()).}}you{{#}}", e: "Hello you!" },
 		{ t: "{{:foo#}}Hello {{#content}}!{{.}}world{{#}}{{#(foo())}}", e: "Hello world!" },
 		{ t: "{{foo#}}Hello world!{{#}}{{#foo}}", e: "Hello world!" },
-		{ t: "{{foo#}}Hello {{_a}}!{{#}}{{#foo('you')}}", e: "Hello you!" },
+		{ t: "{{foo#}}Hello {{it}}!{{#}}{{#foo('you')}}", e: "Hello you!" },
 		{ t: "{{foo#}}Hello {{#content}}!{{#}}{{#foo.}}you{{#}}", e: "Hello you!" },
 		{ t: "{{foo#}}Hello {{#content}}!{{.}}world{{#}}{{#foo.}}you{{#}}", e: "Hello you!" },
 		{ t: "{{foo#}}Hello {{#content}}!{{.}}world{{#}}{{#foo}}", e: "Hello world!" },
@@ -193,16 +215,31 @@
 		{ t: "{{c#}}x<x>{{#}}{{#c}}", e: "x<x>" },
 	]);	
 	
-	testEval("ArgRecursion", [
-		{ t: "{{:x#}}a{{_a}}{{#content(_a)}}{{#}}{{#(x(5)).}}b{{?_a>0}}{{#content(_a-1)}}{{_a}}{{?}}{{#}}", e: "a5bbbbbb12345" },
-		{ t: "{{:x#}}a{{_a}}{{#content(_a+1).}}c{{?_a>0}}{{#content(_a-1)}}{{?}}d{{_a}}{{#}}{{#}}{{#(x(1)).}}b{{_a}}{{#content(_a+1)}}{{#}}", e: "a1b2ccccd0d1d2d3" },
-	]);		
-	
 	testEval("DynamicBlocks", [
-		{ t: "{{#(_$.block('name', [1, 2])).}}a{{#}}", e: "[name 0=[1] 1=[2] content=[a]]" },
-		{ t: "{{?_$.block('name', [1, 2]) :x}}yes{{??}}no{{?}}", e: "no" },
-		{ t: "{{:x#}}{{?_$.block('content') :x}}yes{{??}}no{{?}}{{#}}{{#(x()).}}c{{#}}", e: "yes" },
-		{ t: "{{:x#}}{{?_$.block('content', _a) :x}}{{#(x)}}{{??}}no{{?}}{{#}}{{#(x(5)).}}<c{{_a}}>{{#}}", e: "<c5>" },
+		{ t: "{{#(_$.block(_c, 'name', [1, 2])).}}a{{#}}", e: "[name 0=[1] 1=[2] content=[a]]" },
+		{ t: "{{?_$.block(_c, 'name', [1, 2]) :x}}yes{{??}}no{{?}}", e: "no" },
+		{ t: "{{:x#}}{{?_$.block(_c, 'content')}}yes{{??}}no{{?}}{{#}}{{#(x()).}}c{{#}}", e: "yes" },
+		{ t: "{{:x#}}{{?_$.block(_c, 'content', it) :x}}{{#(x)}}{{??}}no{{?}}{{#}}{{#(x(5)).}}<c{{_a}}>{{#}}", e: "<c5>" },
+	]);
+	
+	testEval("OptionalBlocks", [
+		{ t: "{{#foo}}", e: "[foo]" },
+		{ t: "{{#foo?}}", e: "" },
+		{ t: "{{#foo@[1,2]}}", e: "[foo][foo]" },
+		{ t: "{{#foo?@[1,2]}}", e: "" },
+		{ t: "{{foo#}}bar{{#}}{{#foo?}}", e: "bar" },
+		{ t: "{{foo#}}bar{{it}}{{#}}{{#foo?@[1,2]}}", e: "bar1bar2" },
+	]);	
+		
+	testEval("DefaultArgs", [
+		{ t: "{{#arg}}{{.arg}}foo", e: "foo" },
+		{ t: "{{#arg}}{{.arg}}foo", e: "bar", d: {
+			'arg': function(_$, _a) { return "bar"; }
+		} },
+		{ t: "{{#arg(1)}}{{.arg}}foo{{_a}}", e: "foo1" },
+		{ t: "{{#arg(1)}}{{.arg}}foo{{_a}}", e: "bar1", d: {
+			'arg': function(_$, _a) { return "bar" + _a; }
+		} },
 	]);
 	
 	testEval("Whitespaces", [

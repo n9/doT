@@ -35,7 +35,7 @@
 	var pParamContent = "[^" + lStringChars + sParam 
 		+ "\\{\\}" // wohak for object notation, e.g. {a: b}
 		+ "]";
-	doT.recurseBlock = '%';
+	doT.declarationArg = '%';
 	
 	var re = function(p) {
 		return new RegExp(pBegin + p + pEnd, "g");
@@ -60,7 +60,7 @@
 			+ "(?:\\s*" + sParam + "\\s*(" + pIdent + "*))?)?)?"),
 		blockParam: re("(\\.(" + pIdentWithSlash + "*))"),
 		blockDef: re("(" + pIdent + "+)" + sBlock),
-		block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:((?:" + pIdentWithSlash + "+|" + doT.recurseBlock + ")@?)?(" + pAny + "*?))??(\\.(" + pIdentWithSlash + "*))?"),
+		block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:((?:" + pIdentWithSlash + "+)\\??@?)?(" + pAny + "*?))??(\\.(" + pIdentWithSlash + "*))?"),
 		variable: re(sParam + "(" + pAny + "+?)"),
 		statement: re(sStatement + "(" + pAny + "+?)"),
 		comment: re(sComment + pAny + "*?" + sComment),
@@ -70,6 +70,7 @@
 		innerEndMatch: pBegin + sComment + ">" + sComment + pEnd,
 		dataVar: 'it',
 		opVar: '_$',
+		closureVar: '_c',
 		argVar: '_a',
 		blockContent: 'content',
 		strip: true
@@ -119,26 +120,32 @@
 	doT.blockWriter = function(name, jas, tas) { 
 		var _$ = this;
 		return "[" + name
-			+ Object.keys(jas || {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]"; }).join("")
+			+ Object.keys(typeof(jas) === "object" ? jas || {} : {}).map(function(k) { return " " + k + "=" + "[" + jas[k] + "]"; }).join("")
 			+ Object.keys(tas || {}).map(function(k) { return " " + k + "=" + "[" + tas[k](_$, jas) + "]"; }).join("") + "]"; 
 	};
-	doT.blockProcessor = function(name, jas, tas) {
+	doT.blockProcessor = function(cas, name, jas, tas) {
 		var _$ = this;
-		var block = _$.blocks[name];
+		var nl = name.length;
+		var isOptional = nl && name[nl - 1] === '?';
+		if (isOptional)
+			name = name.substr(0, nl - 1);
+		var block = _$.resolveBlock(cas, name, jas) || (!isOptional && function (_$, jas, tas) {
+			return _$.unknownBlock(name, jas, tas);
+		});
 		if (block)
 			return block(_$, jas, tas);
-		return _$.unknownBlock(name, jas, tas);
+		return "";
 	};
-	doT.blockSplatter = function (name, jas, tas, _b) {
+	doT.blockSplatter = function(cas, name, jas, tas, _b) {
 		var _$ = this;
 		var nl = name.length;
 		if (!nl || name[nl - 1] !== '@')
-			return _b.call(_$, name, jas, tas);
+			return _b.call(_$, cas, name, jas, tas);
 		var out = '';
 		var jl = jas ? jas.length : 0;
 		name = name.substr(0, nl - 1); 
 		for (var i = 0; i < jl; i++)
-			out += _b.call(_$, name, jas[i], tas);
+			out += _b.call(_$, cas, name, jas[i], tas);
 		return out;
 	};
 	
@@ -162,37 +169,33 @@
 	
 	cp.ic = function doTInterpolateCondition(c) { 
 		return !!c && (!(c instanceof Function) || (c.type !== blockDefType)
-			|| this.bm(c.blockName, c.blockArguments)); 
+			|| this.bm(c.closureArgs, c.blockName, c.blockArguments)); 
 	};
 	
 	cp.l = doT.loop;
 	
-	cp.b = function doTBlock(name, jas, tas) { 
-		return doT.blockSplatter.call(this, name, jas, tas, doT.blockProcessor); 
+	cp.b = function doTBlock(cas, name, jas, tas) { 
+		return doT.blockSplatter.call(this, cas, name, jas, tas, doT.blockProcessor); 
 	};
 		
-	cp.bg = function doTBlock(name, jas, tas) { 
-		return new DoTLiteral(this.b(name, jas, tas));
+	cp.bv = function doTBlockVar(cas, name, jas, tas) { 
+		return new DoTLiteral(this.b(cas, name, jas, tas));
 	};
 	
 	cp.ib = function doTInlineBlock(dt) { 
+		var b = doT.declaration(dt);
 		return function(j) { 
 			return function(cc, ct) {
-				var bs = {};
-				assign(bs, dt);
-				assign(bs, ct);
-				// what about dc blocks (with prototype chain)? (closure vs. block behavior)
-				var c = cc.clone(bs);
-				return new DoTLiteral(dt[doT.recurseBlock](c, j));
+				return new DoTLiteral(b(cc, j, ct));
 			};
 		};
 	};
 	
-	cp.bm = function doTBlockMeta(name, args) {
+	cp.bm = function doTBlockMeta(cas, name, args) {
 		var _$ = this;
-		var b = _$.blocks[name] || _$.unknownBlockMeta(name, args);
+		var b = _$.resolveBlock(cas, name, args);
 		if (!b)
-			return false;
+			return null;
 		return function(c, j, t) {
 			return new DoTLiteral(b(c, j, t));
 		};
@@ -200,22 +203,31 @@
 	
 	cp.bd = function doTBlockDefine(name, dt) {
 		var _$ = this;
-		_$.blocks[name] = function(cc, j, ct) {				
+		_$.blocks[name] = doT.declaration(dt);
+	};
+	
+	doT.declaration = function doTDeclaration(dt) {
+		var b = dt[doT.declarationArg];
+		return function(cc, j, ct) {				
 			var bs = {};
 			assign(bs, dt);
 			assign(bs, ct);
-			var c = cc.clone(bs);
-			return dt[doT.recurseBlock](c, j);
+			return b(cc.clone(), j, doT.processArgs(bs));
 		};
 	};
+	cp.resolveBlock = function(cas, name, args) {
+		var _$ = this;
+		return _$.callBlocks[name] || cas[name] || _$.blocks[name] || _$.unknownBlockMeta(name, args);
+	};
 	
-	cp.block = function(name, jas) {
+	cp.block = function(cas, name, jas) {
 		var blockDef = function DoTBlockDef(c, tas) {
-			return new DoTLiteral(c.b(name, jas, tas));
+			return new DoTLiteral(c.b(cas, name, jas, tas));
 		};
 		blockDef.type = blockDefType;
 		blockDef.blockName = name;
 		blockDef.blockArguments = jas;
+		blockDef.closureArgs = cas;
 		return blockDef;
 	};
 	
@@ -223,31 +235,37 @@
 	
 	cp.unknownBlockMeta = no;
 	
-	cp.clone = function(newBlocks) {
+	doT.processArgs = function(callBlocks) {
+		if (!callBlocks)
+			return null;
+		var newCallBlocks = {};
+		Object.keys(callBlocks).forEach(function(k) {
+			var b = callBlocks[k];
+			newCallBlocks[k] = function(c, j, t) {
+				return b(c.clone(t), j);
+			};
+		});
+		return newCallBlocks;
+	};
+	
+	cp.clone = function(callBlocks) {
 		var _$ = this;
 		var blocks = Object.create(_$.blocks);
-		if (newBlocks) {
-			Object.keys(newBlocks).forEach(function(k) {
-				var b = newBlocks[k];
-				blocks[k] = function(c, j, t) {
-					return b(c.clone(t), j);
-				};
-			});
-		}
-		return new _$.constructor(blocks);
+		return new _$.constructor(blocks, doT.processArgs(callBlocks));
 	};
 	
 	cp.fullDerive = function() {
-		var C = function DoTDerivedContext(blocks) { 
-			this.blocks = blocks;
+		var C = function DoTDerivedContext(blocks, callBlocks) { 
+			DoTContext.call(this, blocks, callBlocks);
 		};
 		C.prototype = this;
 		C.prototype.constructor = C;
-		return new C(this.blocks);
+		return new C(this.blocks, this.callBlocks);
 	};
 
-	function DoTContext(blocks) { 
+	function DoTContext(blocks, callBlocks) { 
 		this.blocks = blocks || {};
+		this.callBlocks = callBlocks || {};
 	}
 	cp.constructor = DoTContext;
 	DoTContext.prototype = cp;
@@ -306,8 +324,8 @@
 			str  = (c.use || c.define) ? resolveDefs(c, tmpl, def || {}) : tmpl;
 		if (c.strip) {
 			str = str
-				.replace(/(^|\r|\n)[\t ]*|[ \t]*(\r|\n|$)/g,'\n')
-				.replace(/(^|\r|\n)[\t ]*|[ \t]*(\r|\n|$)/g,'\n')
+				.replace(/(^|[\r\n])[\t ]*|[ \t]*([\r\n]|$)/g,'\n')
+				.replace(/(^|[\r\n])[\t ]*|[ \t]*([\r\n]|$)/g,'\n')
 				.replace(/\n+/g,'\n')
 				.replace(/^\n|\n$/g,'');
 		}
@@ -319,9 +337,17 @@
 		
 		function processBlock(declareVar, name, args, paramBlock, paramName) {
 			var inlineBlock = declareVar && !name && !args;
-			if (!paramName)
-				paramName = paramBlock ? c.blockContent : doT.recurseBlock;
-			var startParam = "'" + paramName + "':function(" + c.opVar + "," + c.argVar + "){var out=" + innerBegin;
+			var argVar = c.argVar;
+			var moreArg = "";
+			if (!paramName) {
+				if (paramBlock) {
+					paramName = c.blockContent;
+				} else {
+					paramName = doT.declarationArg;
+					argVar = c.dataVar + "," + c.closureVar;
+				}
+			}
+			var startParam = "'" + paramName + "':function(" + c.opVar + "," + argVar + "){var out=" + innerBegin;
 			if (name || args || declareVar) {
 				if (declareVar === blockDefToken)
 					return "';(" + c.opVar + ".bd('" + name + "',{" + startParam;
@@ -340,7 +366,7 @@
 				}
 				args = args ? unescape(args) : "null";
 				startBlock += name 
-					? c.opVar + (declareVar ? ".bg('" : ".b('") + name + "'," + (args ? unescape(args) : "null")
+					? c.opVar + (declareVar ? ".bv(" : ".b(") + c.closureVar + ",'" + name + "'," + (args ? unescape(args) : "null")
 					: args + "(" + c.opVar;
 				if (paramBlock) {
 					return startBlock + ",{" + startParam;
@@ -370,9 +396,9 @@
 			.replace(c.conditionalBegin, function(m, elsecase, block, blockName, code, vname) {
 				code = unescape(code);
 				if (block) {
-					code = c.opVar + ".bm('" + blockName + "'," + (code || "null") + ")";
+					code = c.opVar + ".bm(" + c.closureVar + ",'" + blockName + "'," + (code || "null") + ")";
 				}
-				code = c.opVar + ".c(" + code + ",function(" + vname + ")";
+				code = c.opVar + ".c(" + code + ",function(" + (vname || "") + ")";
 				return elsecase 
 					? condEnd + "||" + code + condBegin
 					: "';" + code + condBegin;
@@ -406,7 +432,10 @@
 			str = str
 				.replace(new RegExp(c.innerBeginMatch + "'\\n", "g"), "'")
 				.replace(new RegExp("\\n*'" + c.innerEndMatch, "g"), "'")
-				.replace(c.comment, "");
+				.replace(c.comment, "")
+				.replace(/;out\+='\n';/g, ";")
+				.replace(/;out\+='\n'\+/g, ";out+=")
+				;
 		}
 		str = str
 			.replace(c.statement, function(m, code) {
@@ -426,7 +455,7 @@
 			.replace(/(\s|;|\}|^|\{)out\+='';/g, '$1').replace(/\+''/g, '')
 			.replace(/(\s|;|\}|^|\{)out\+=''\+/g,'$1out+=');
 
-		return "var " + str;
+		return "return " + c.opVar + "({'%':function(" + c.opVar + "," + c.dataVar + "," + c.closureVar + "){var " + str + "}});";
 	};
 
 	doT.compile = function(tmpl, c, def) {
@@ -435,12 +464,12 @@
 	};
 	doT.globals = function(c) {
 		c = resolveSettings(c);
-		return [c.dataVar, c.opVar];
+		return [c.opVar];
 	};
 	doT.wrap = function(source, c) {
 		c = resolveSettings(c);
 		try {
-			return new Function(c.opVar, c.dataVar, source);
+			return new Function(c.opVar, source)(doT.declaration);
 		} catch (e) {
 			if (typeof console !== 'undefined') console.log("Could not create a template function: " + source);
 			throw e;
