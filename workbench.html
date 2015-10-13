@@ -8,15 +8,15 @@ pre { white-space: pre-wrap; }
 </style>
 <style>.ace_n9dotToken { background: rgba(0, 0, 0, 0.05); } .ace_n9dotExpression {	background: rgba(0, 128, 0, 0.05); }</style>
 </head><body>
-<div>Source:</div>
+<div>Source (<button id="loadSource">Load</button>, <button id="saveSource">Save</button>):</div>
 <pre id="source">Loading...</pre>
 <div>Compiled template (<input type="checkbox" id="beautify"> beautify): <button id="addLineToSource">v</button></div>
 <pre id="compiled">not yet compiled</pre>
-<div>Context data (JSON) (<input type="checkbox" id="hideData"> hide):</div>
+<div>Context data (JSON) (<input type="checkbox" id="hideData"> hide, <button id="loadData">Load</button>, <button id="saveData">Save</button>):</div>
 <textarea id="data"></textarea>
 <pre id="diag">not yet evaluated</pre>
 <pre id="error">not yet evaluated</pre>
-<div>Output (<input type="checkbox" id="hideOutput"> hide) (<button id="viewInViewer">View in viewer</button>, <button id="saveOutput">Save</button>):</div>
+<div>Output (<input type="checkbox" id="hideOutput"> hide, <button id="viewInViewer">View in viewer</button>, <button id="saveOutput">Save</button>):</div>
 <pre id="output">not yet evaluated</pre>
 <script src="https://cdn.rawgit.com/n9/ace-builds/38eb9a5/src/ace.js"></script>
 <script>
@@ -49,12 +49,20 @@ pre { white-space: pre-wrap; }
 	var eDiag = E('diag');
 	var eBeautify = E('beautify');
 	var eViewInViewer = E('viewInViewer');
+	var eLoadData = E('loadData');
+	var eSaveData = E('saveData');
 	var eSaveOutput = E('saveOutput');
 	var eAddLineToSource = E('addLineToSource');
 	var eError = E('error');
+	var eLoadSource = E('loadSource');
+	var eSaveSource = E('saveSource');
 	var data;
 	
 	var viewerWindow;
+	
+	window.onmessage = function(evt) {
+		evt.source.postMessage(eOutput.textContent, '*');
+	};
 	
 	var dotGlobals = {};
 	doT.globals().forEach(function(v) {
@@ -79,7 +87,7 @@ pre { white-space: pre-wrap; }
 		doTcompile();
 	}
 	
-	function downloadFile(fileName, content, contentType) {
+	function saveFile(fileName, content, contentType) {
 		var a = document.createElement('a');
 		a.style.display = 'none';
 		a.download = fileName;
@@ -88,6 +96,24 @@ pre { white-space: pre-wrap; }
 		a.click();
 		document.body.removeChild(a);	
 	}
+	
+	function loadTextFile(action, accept) {
+		var i = document.createElement('input');
+		i.type = 'file';
+		if (accept)
+			i.accept = accept;
+		i.style.display = 'none';
+		i.onchange = function(evt) {
+			var reader = new FileReader();
+			reader.onload = function() {
+				action(reader.result);
+			};
+			reader.readAsText(evt.target.files[0]);
+		};
+		document.body.appendChild(i);
+		i.click();
+		document.body.removeChild(i);	
+	}	
 
 	function doTcompile() { 
 		var source = aceSource.session.getValue();
@@ -190,6 +216,28 @@ pre { white-space: pre-wrap; }
 		eHideOutput.checked = false;
 		eHideOutput.click();
 	};
+	
+	eLoadSource.onclick = function() {
+		loadTextFile(function(t) {
+			aceSource.session.setValue(t);
+			doTcompile();
+		}, '.dt');		
+	};
+	
+	eSaveSource.onclick = function() {
+		saveFile("template.dt", aceSource.session.getValue(), "text/plain");	
+	};
+	
+	eLoadData.onclick = function() {
+		loadTextFile(function(t) {
+			eData.value = t;
+			dataUpdated();
+		}, '.json');
+	};
+	
+	eSaveData.onclick = function() {
+		saveFile('data.json', eData.value, 'text/json');
+	};
 
 	eSaveOutput.onclick = function() {
 		var style;
@@ -199,7 +247,7 @@ pre { white-space: pre-wrap; }
 		})
 		var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>doT viewer</title><style>' 
 			+ style + '</style></head><body>' + content + '</body></html>';
-		downloadFile("output.html", html, "text/html");
+		saveFile("output.html", html, "text/html");
 	};
 	dataUpdated();
 </script>
