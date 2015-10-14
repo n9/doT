@@ -136,6 +136,8 @@
 	testEval("If", [
 		{ it: true, t: "Hello {{?it}}great{{?}} world", e: "Hello great world" },
 		{ it: false, t: "{{?it}}Yes{{??}}No{{?}}!", e: "No!" },
+		{ it: [], t: "{{?it}}Yes{{??}}No{{?}}!", e: "No!" },
+		{ it: [1], t: "{{?it}}Yes{{??}}No{{?}}!", e: "Yes!" },
 		{ it: false, t: "{{*{{?it}}Yes{{??}}No{{?}}*}}!", e: "!" },
 		{ it: peopleData, t: "{{?it.people[0].addresses :as}}{{as.length}} address(es){{??}}No address{{?}}", e: "2 address(es)" },
 		{ t: "{{:x=4}}{{?5:x}}Foo{{x}}{{??6:x}}Bar{{x}}{{??}}Zoo{{x}}{{?}}{{x}}", e: "Foo54" },

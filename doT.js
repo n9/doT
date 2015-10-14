@@ -62,7 +62,7 @@
 		blockDef: re("(" + pIdent + "+)" + sBlock),
 		block: re("(?:(?:" + sParam + ")(" + pIdent + "+))?" + sBlock + "(?:((?:" + pIdentWithSlash + "+)\\??@?)?(" + pAny + "*?))??(\\.(" + pIdentWithSlash + "*))?"),
 		variable: re(sParam + "(" + pAny + "+?)"),
-		statement: re(sStatement + "(" + pAny + "+?)"),
+		statement: re(sStatement + "(" + pAny + "+?)(?:\\s*;\\s*)?"),
 		comment: re(sComment + pAny + "*?" + sComment),
 		innerBeginText: "{{*<*}}",
 		innerEndText: "{{*>*}}",
@@ -168,8 +168,8 @@
 	};
 	
 	cp.ic = function doTInterpolateCondition(c) { 
-		return !!c && (!(c instanceof Function) || (c.type !== blockDefType)
-			|| this.bm(c.closureArgs, c.blockName, c.blockArguments)); 
+		return !!c && (c instanceof Array ? !!c.length : (!(c instanceof Function) || (c.type !== blockDefType)
+			|| this.bm(c.closureArgs, c.blockName, c.blockArguments))); 
 	};
 	
 	cp.l = doT.loop;

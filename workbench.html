@@ -5,18 +5,19 @@
 <style>
 textarea { display: block; width: 100%; height: 100px; }
 pre { white-space: pre-wrap; }
+#addLineToSource { float: right; }
 </style>
 <style>.ace_n9dotToken { background: rgba(0, 0, 0, 0.05); } .ace_n9dotExpression {	background: rgba(0, 128, 0, 0.05); }</style>
 </head><body>
-<div>Source (<button id="loadSource">Load</button>, <button id="saveSource">Save</button>):</div>
+<div>Source (<button id="loadSource">Load</button> <button id="saveSource">Save</button>):</div>
 <pre id="source">Loading...</pre>
-<div>Compiled template (<input type="checkbox" id="beautify"> beautify): <button id="addLineToSource">v</button></div>
+<div>Compiled template (<label for="beautify"><input type="checkbox" id="beautify"> beautify</label> <button id="saveTemplate">Save</button>): <button id="addLineToSource">v</button></div>
 <pre id="compiled">not yet compiled</pre>
-<div>Context data (JSON) (<input type="checkbox" id="hideData"> hide, <button id="loadData">Load</button>, <button id="saveData">Save</button>):</div>
+<div>Context data (JSON) (<label for="hideData"><input type="checkbox" id="hideData"> hide</label> <button id="loadData">Load</button> <button id="saveData">Save</button>):</div>
 <textarea id="data"></textarea>
 <pre id="diag">not yet evaluated</pre>
 <pre id="error">not yet evaluated</pre>
-<div>Output (<input type="checkbox" id="hideOutput"> hide, <button id="viewInViewer">View in viewer</button>, <button id="saveOutput">Save</button>):</div>
+<div>Output (<label for="hideOutput"><input type="checkbox" id="hideOutput"> hide</label> <button id="viewInViewer">View in viewer</button> <button id="saveOutput">Save</button>):</div>
 <pre id="output">not yet evaluated</pre>
 <script src="https://cdn.rawgit.com/n9/ace-builds/38eb9a5/src/ace.js"></script>
 <script>
@@ -36,12 +37,14 @@ pre { white-space: pre-wrap; }
 	});
 	aceCompiled.session.setMode("ace/mode/javascript");		
 </script>
-<script src="doT.js"></script>
+<script id="doTScript" src="doT.js"></script>
 <script src="https://cdn.rawgit.com/jshint/jshint/2.8.0/dist/jshint.js"></script>
 <script src="https://cdn.rawgit.com/beautify-web/js-beautify/v1.5.5/js/lib/beautify.js"></script>
-<script>
+<script><!--
+
 	function E(id) { return document.getElementById(id); }
 
+	var eDoTScript = E('doTScript');
 	var eData = E('data');
 	var eHideData = E('hideData');
 	var eOutput = E('output');
@@ -56,6 +59,7 @@ pre { white-space: pre-wrap; }
 	var eError = E('error');
 	var eLoadSource = E('loadSource');
 	var eSaveSource = E('saveSource');
+	var eSaveTemplate = E('saveTemplate');
 	var data;
 	
 	var viewerWindow;
@@ -87,6 +91,16 @@ pre { white-space: pre-wrap; }
 		doTcompile();
 	}
 	
+	function getText(url, action) {
+		var xhr = new XMLHttpRequest();
+		xhr.open('get', url);
+		xhr.onreadystatechange = function () {
+			if (xhr.readyState === 4)
+				action(xhr.status === 200 ? xhr.responseText : null);
+		};
+		xhr.send();
+	}
+
 	function saveFile(fileName, content, contentType) {
 		var a = document.createElement('a');
 		a.style.display = 'none';
@@ -145,9 +159,9 @@ pre { white-space: pre-wrap; }
 			}, dotGlobals);
 			var errors = JSHINT.errors.filter(function(e) { return e; });
 			var undefs = JSHINT.undefs;
-			var errorsText = errors.map(function(e) { return "\n[" + e.line + "," + e.character + "] " + e.code + ": " + e.reason; }).join();
+			var errorsText = errors.map(function(e) { return "\n[" + e.line + "," + e.character + "] " + e.code + ": " + e.reason; }).join('');
 			if (undefs.length)
-				errorsText += "\r\nundefs: " + undefs.map(function(u) { return "\n[" + u[2].line + "," + u[2].character + "] " + u[2].value; }).join();
+				errorsText += "\r\nundefs: " + undefs.map(function(u) { return "\n[" + u[2].line + "," + u[2].character + "] " + u[2].value; }).join('');
 			
 			eDiag.textContent = errorsText;
 			aceCompiled.session.setAnnotations(errors.map(function(e) { return { row: e.line - 1, column: e.character - 1, text: e.reason, type: e.code[0] === 'W' ? "warning" : "error" };}).concat(undefs.map(function(u) { return { row: u[2].line - 1, column: u[2].character - 1, text: u[2].value + " is not defined", type: "info" };})));
@@ -228,6 +242,36 @@ pre { white-space: pre-wrap; }
 		saveFile("template.dt", aceSource.session.getValue(), "text/plain");	
 	};
 	
+	var doTScriptCache;
+	
+	eSaveTemplate.onclick = function() {
+		if (doTScriptCache) {
+			saveTemplate(doTScriptCache);
+		} else {
+			getText(eDoTScript.getAttribute('src'), function(doTScript) {
+				if (doTScript) {
+					saveTemplate(doTScriptCache = doTScript);
+				} else {
+					loadTextFile(function(t) {
+						if (t)
+							saveTemplate(doTScriptCache = t);
+					}, '.js');
+				}
+			});
+		}
+	};
+	
+	function saveTemplate(doTScript) {
+		var source = aceSource.session.getValue();
+		var code = 'var t = function(_$) {' + doT.template(source) + '}(doT.declaration), eData = document.getElementById("data"), eOutput = document.getElementById("output"), eStyle = document.getElementById("style");'
+			+ ' eData.onchange = function(ev) { var result = t(new doT.Context(), JSON.parse(ev.target.value)), style = "", content = result.replace(/<style>([^<]*)<\\/style>/, function(w, s) { style += s; return "" }); '
+			+ ' eStyle.textContent = style; eOutput.innerHTML = content; }'; 
+		var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>doT template</title><style id="style"></style></head><body><script>'
+			+ doTScript + '</script><textarea id="data" style="width: 100%"></textarea><div id="output"></div><script>'
+			+ code + '</script></body></html>';
+		saveFile("template.html", html, "text/html");	
+	}
+	
 	eLoadData.onclick = function() {
 		loadTextFile(function(t) {
 			eData.value = t;
@@ -250,5 +294,5 @@ pre { white-space: pre-wrap; }
 		saveFile("output.html", html, "text/html");
 	};
 	dataUpdated();
-</script>
+--></script>
 </body></html>
