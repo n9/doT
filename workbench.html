@@ -101,11 +101,11 @@ pre { white-space: pre-wrap; }
 		xhr.send();
 	}
 
-	function saveFile(fileName, content, contentType) {
+	function saveTextFile(fileName, content, contentType) {
 		var a = document.createElement('a');
 		a.style.display = 'none';
 		a.download = fileName;
-		a.href = 'data:' + contentType + ';base64,' + btoa(content);
+		a.href = 'data:' + contentType + ';charset=utf-8,' + encodeURIComponent(content);
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);	
@@ -239,7 +239,7 @@ pre { white-space: pre-wrap; }
 	};
 	
 	eSaveSource.onclick = function() {
-		saveFile("template.dt", aceSource.session.getValue(), "text/plain");	
+		saveTextFile("template.dt", aceSource.session.getValue(), "text/plain");	
 	};
 	
 	var doTScriptCache;
@@ -269,7 +269,7 @@ pre { white-space: pre-wrap; }
 		var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>doT template</title><style id="style"></style></head><body><script>'
 			+ doTScript + '</script><textarea id="data" style="width: 100%"></textarea><div id="output"></div><script>'
 			+ code + '</script></body></html>';
-		saveFile("template.html", html, "text/html");	
+		saveTextFile("template.html", html, "text/html");	
 	}
 	
 	eLoadData.onclick = function() {
@@ -280,7 +280,7 @@ pre { white-space: pre-wrap; }
 	};
 	
 	eSaveData.onclick = function() {
-		saveFile('data.json', eData.value, 'text/json');
+		saveTextFile('data.json', eData.value, 'text/json');
 	};
 
 	eSaveOutput.onclick = function() {
@@ -291,7 +291,7 @@ pre { white-space: pre-wrap; }
 		})
 		var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>doT viewer</title><style>' 
 			+ style + '</style></head><body>' + content + '</body></html>';
-		saveFile("output.html", html, "text/html");
+		saveTextFile("output.html", html, "text/html");
 	};
 	dataUpdated();
 --></script>
